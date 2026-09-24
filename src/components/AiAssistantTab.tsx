@@ -100,21 +100,16 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
   const [currentPlan, setCurrentPlan] = useState<DetailedLessonPlan | null>(null);
   const [selectedPeriodTab, setSelectedPeriodTab] = useState<number>(0); // 0 = All, 1 = Period 1, 2 = Period 2...
   const [copied, setCopied] = useState<boolean>(false);
-  const [savedPlans, setSavedPlans] = useState<DetailedLessonPlan[]>([]);
   const [schoolConfig, setSchoolConfig] = useState<SchoolConfig>(defaultSchoolConfig);
 
-  // Load saved plans and PPCT from Firestore and user-isolated localStorage
+  // Load PPCT and school config, and wipe any legacy saved plans from storage & Firestore
   useEffect(() => {
     const keys = getUserKhdhStorageKeys(currentUser?.id);
 
-    // 1. First load from local storage cache for instant UI
+    // Wipe saved lesson plans from localStorage as requested (no lesson plan persistence in library)
     try {
-      const saved = localStorage.getItem(keys.SAVED_PLANS) || localStorage.getItem('khdh_saved_lesson_plans_v1');
-      if (saved) {
-        setSavedPlans(JSON.parse(saved));
-      } else {
-        setSavedPlans([]);
-      }
+      localStorage.removeItem(keys.SAVED_PLANS);
+      localStorage.removeItem('khdh_saved_lesson_plans_v1');
       const savedConfig = localStorage.getItem(keys.CONFIG) || localStorage.getItem('khdh_school_config_v1');
       if (savedConfig) {
         setSchoolConfig(JSON.parse(savedConfig));
@@ -124,22 +119,17 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         setPpctList(JSON.parse(savedPpct));
       }
     } catch (e) {
-      console.error('Error reading localStorage for lesson plans:', e);
+      console.error('Error reading localStorage for config/PPCT:', e);
     }
 
-    // 2. Fetch latest saved plans & KHDH PPCT from Firestore for this specific logged-in user
+    // Fetch latest KHDH PPCT & Config from Firestore and wipe cloud saved lesson plans
     let active = true;
     async function fetchUserData() {
       if (!currentUser?.id) return;
       try {
-        const [cloudPlans, khdhData] = await Promise.all([
-          loadLessonPlansFromFirestore(currentUser.id),
-          loadKhdhDataFromFirestore(currentUser.id)
-        ]);
-        if (cloudPlans && active) {
-          setSavedPlans(cloudPlans);
-          localStorage.setItem(keys.SAVED_PLANS, JSON.stringify(cloudPlans));
-        }
+        // Clear saved lesson plans document in Firestore
+        saveLessonPlansToFirestore(currentUser.id, []).catch(() => {});
+        const khdhData = await loadKhdhDataFromFirestore(currentUser.id);
         if (khdhData && active) {
           if (khdhData.config) {
             setSchoolConfig(khdhData.config);
@@ -151,7 +141,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
           }
         }
       } catch (err) {
-        console.warn('Error fetching cloud lesson plans / PPCT:', err);
+        console.warn('Error fetching cloud PPCT / config:', err);
       }
     }
     fetchUserData();
@@ -279,29 +269,6 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
     setTopicError(null);
   };
 
-  const handleSaveToLibrary = async (planToSave: DetailedLessonPlan) => {
-    try {
-      const exists = savedPlans.some((p) => p.id === planToSave.id);
-      let updated: DetailedLessonPlan[];
-      if (exists) {
-        updated = savedPlans.map((p) => (p.id === planToSave.id ? planToSave : p));
-      } else {
-        updated = [planToSave, ...savedPlans];
-      }
-      setSavedPlans(updated);
-      
-      const keys = getUserKhdhStorageKeys(currentUser?.id);
-      localStorage.setItem(keys.SAVED_PLANS, JSON.stringify(updated));
-
-      // Persist to user's Firestore cloud account
-      const userId = currentUser?.id || 'shared';
-      await saveLessonPlansToFirestore(userId, updated);
-      alert('Đã lưu giáo án vào tài khoản của Thầy/Cô thành công!');
-    } catch (e) {
-      console.error('Error saving plan:', e);
-    }
-  };
-
   const handleSaveApiKey = (keyToSave: string) => {
     const trimmed = keyToSave.trim();
     setCustomApiKey(trimmed);
@@ -366,32 +333,6 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         success: true,
         message: 'Đã lưu API Key cho trình duyệt (Sẵn sàng soạn giáo án AI).'
       });
-    }
-  };
-
-  const handleDeleteSavedPlan = async (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa giáo án này khỏi thư viện?')) {
-      const updated = savedPlans.filter((p) => p.id !== id);
-      setSavedPlans(updated);
-      const keys = getUserKhdhStorageKeys(currentUser?.id);
-      localStorage.setItem(keys.SAVED_PLANS, JSON.stringify(updated));
-      const userId = currentUser?.id || 'shared';
-      await saveLessonPlansToFirestore(userId, updated);
-      if (currentPlan?.id === id) {
-        setCurrentPlan(null);
-      }
-    }
-  };
-
-  const handleClearAllSavedPlans = async () => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa TOÀN BỘ các bài giáo án trong thư viện của tài khoản?')) {
-      setSavedPlans([]);
-      setCurrentPlan(null);
-      const keys = getUserKhdhStorageKeys(currentUser?.id);
-      localStorage.removeItem(keys.SAVED_PLANS);
-      localStorage.removeItem('khdh_saved_lesson_plans_v1');
-      const userId = currentUser?.id || 'shared';
-      await saveLessonPlansToFirestore(userId, []);
     }
   };
 
@@ -1164,13 +1105,6 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
               <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-400 text-teal-950">Vercel</span>
             )}
           </button>
-
-          {savedPlans.length > 0 && (
-            <div className="flex items-center gap-2 text-xs bg-white/15 px-3 py-2 rounded-xl backdrop-blur-md">
-              <Bookmark className="w-4 h-4 text-amber-300" />
-              <span className="font-bold">Đã lưu: {savedPlans.length} giáo án</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1583,57 +1517,6 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
               )}
             </button>
           </form>
-
-          {/* Saved Plans Library */}
-          {savedPlans.length > 0 && (
-            <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                  <Bookmark className="w-4 h-4 text-amber-500" />
-                  <span>Thư viện giáo án đã lưu ({savedPlans.length}):</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleClearAllSavedPlans}
-                  className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
-                  title="Xóa toàn bộ giáo án đã lưu trong tài khoản"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Xóa tất cả</span>
-                </button>
-              </div>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {savedPlans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-2"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentPlan(plan);
-                        setSelectedPeriodTab(0);
-                      }}
-                      className="text-left flex-1 truncate cursor-pointer hover:text-teal-700"
-                    >
-                      <p className="text-xs font-bold text-slate-800 truncate">{plan.topic}</p>
-                      <p className="text-[10px] text-slate-500">
-                        {plan.subject} K{plan.grade} ({plan.totalPeriods} tiết)
-                      </p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSavedPlan(plan.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                      title="Xóa giáo án này"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right Column: Generated Lesson Plan Display */}
@@ -1726,16 +1609,6 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
                   >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copied ? 'Đã sao chép' : 'Sao chép'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSaveToLibrary(currentPlan)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer transition-colors"
-                    title="Lưu giáo án vào thư viện cá nhân"
-                  >
-                    <Bookmark className="w-3.5 h-3.5" />
-                    <span>Lưu bài</span>
                   </button>
 
                   <button
