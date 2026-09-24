@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default safety catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // User accounts collection
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Workspaces collection
+    match /workspaces/{workspaceId} {
+      allow read, write: if true;
+    }
+
+    // KHDH Data collection
+    match /khdh_data/{userId} {
+      allow read, write: if true;
+    }
+
+    // Lesson plans collection
+    match /lesson_plans/{userId} {
+      allow read, write: if true;
+    }
+
+    // System config collection
+    match /system/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
