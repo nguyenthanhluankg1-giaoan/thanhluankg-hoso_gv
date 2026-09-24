@@ -36,7 +36,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   onResetWeekRows
 }) => {
   const [currentWeek, setCurrentWeek] = useState<number>(1);
-  const [displayFontSize, setDisplayFontSize] = useState<number>(13); // Default font size 13
+  const [displayFontSize, setDisplayFontSize] = useState<number>(12); // Default font size 12
   const [editingRow, setEditingRow] = useState<LessonPlanRow | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -366,8 +366,8 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
               className="bg-transparent font-black text-teal-800 text-xs focus:outline-none cursor-pointer"
             >
               <option value={11}>11 px</option>
-              <option value={12}>12 px</option>
-              <option value={13}>13 px (Chuẩn)</option>
+              <option value={12}>12 px (Chuẩn)</option>
+              <option value={13}>13 px</option>
               <option value={14}>14 px</option>
               <option value={15}>15 px</option>
               <option value={16}>16 px</option>
@@ -413,32 +413,32 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-md shadow-teal-600/25 transition-all cursor-pointer disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>{isExporting ? 'Đang xuất...' : 'Xuất Word (cỡ 13)'}</span>
+            <span>{isExporting ? 'Đang xuất...' : 'Xuất Word (cỡ 12)'}</span>
           </button>
         </div>
       </div>
 
       {/* Main Document Layout - Styled like standard A4 paper with auto-scaling */}
       <div className="a4-paper-frame p-6 sm:p-10 font-serif text-slate-900 my-4">
-        {/* Document Header (Trường & Tổ chuyên môn bên trái, Quốc hiệu bên phải) */}
+        {/* Document Header (Trường & Tổ chuyên môn bên trái, Quốc hiệu & Tiêu ngữ bên phải nằm trong cùng 1 hàng) */}
         <div className="grid grid-cols-2 gap-4 text-center mb-6">
-          <div className="flex flex-col items-center">
-            <p className="text-xs sm:text-sm font-normal text-slate-900 uppercase tracking-tight">
+          <div className="flex flex-col items-center justify-start min-w-0">
+            <p className="text-xs sm:text-sm font-normal text-slate-900 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
               {config.schoolName || 'TRƯỜNG TIỂU HỌC THẠNH YÊN 1'}
             </p>
-            <div className="relative inline-block mt-0.5">
-              <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight pb-0.5">
+            <div className="relative inline-block mt-0.5 max-w-full">
+              <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                 {config.departmentName || 'TỔ CHUYÊN MÔN 4+5'}
               </p>
               <div className="w-full h-[1.5px] bg-slate-900 mx-auto" />
             </div>
           </div>
-          <div className="flex flex-col items-center">
-            <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight">
+          <div className="flex flex-col items-center justify-start min-w-0">
+            <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
               {config.republicTitleTop || 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM'}
             </p>
-            <div className="relative inline-block mt-0.5">
-              <p className="text-xs sm:text-sm font-bold text-slate-900 pb-0.5">
+            <div className="relative inline-block mt-0.5 max-w-full">
+              <p className="text-xs sm:text-sm font-bold text-slate-900 pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                 {config.republicTitleSub || 'Độc lập – Tự do – Hạnh phúc'}
               </p>
               <div className="w-full h-[1.5px] bg-slate-900 mx-auto" />
@@ -597,54 +597,60 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         </div>
 
         {/* Footer Signatures matching attached PDF:
-            Date on right, then 3 columns: DUYỆT CỦA P.HIỆU TRƯỜNG | TỔ TRƯỞNG | GIÁO VIÊN */}
-        <div className="mt-8 pt-4">
-          <div className="flex justify-end pr-4 sm:pr-10 mb-3">
-            <p className="text-xs sm:text-sm italic text-slate-800">
+            Date on right, then 3 columns: DUYỆT CỦA P.HIỆU TRƯỜNG | TỔ TRƯỜNG | GIÁO VIÊN */}
+        <div className="mt-8 pt-4 w-full">
+          {/* Dòng ngày tháng địa điểm nằm phía trên bên phải, căn lề phải chuẩn A4 */}
+          <div className="w-full flex justify-end mb-2 pr-4 sm:pr-8">
+            <p className="text-xs sm:text-sm italic text-slate-900 whitespace-nowrap text-right">
               {config.location || 'Vĩnh Hòa'}, ngày .... tháng .... năm ....
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-            {/* Cột 1: DUYỆT CỦA P.HIỆU TRƯỜNG */}
-            <div className="flex flex-col items-center">
-              <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight">
-                {config.principalTitle || 'DUYỆT CỦA P.HIỆU TRƯỜNG'}
-              </p>
-              <div className="h-20 sm:h-24 flex items-center justify-center">
-                {/* Khoảng trống ký tên & đóng dấu */}
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-900">
-                {config.principalName || ''}
-              </p>
-            </div>
+          {/* Bảng 3 cột chia tỷ lệ hợp lý (38% - 28% - 34%), không bị chồng chữ hay rớt dòng */}
+          <table className="w-full border-none border-collapse text-center table-fixed">
+            <tbody>
+              <tr>
+                {/* Cột 1: DUYỆT CỦA P.HIỆU TRƯỜNG */}
+                <td className="w-[38%] border-none align-top text-center px-1">
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight whitespace-nowrap overflow-visible">
+                    {config.principalTitle || 'DUYỆT CỦA P.HIỆU TRƯỜNG'}
+                  </p>
+                  <div className="h-20 sm:h-24 flex items-center justify-center">
+                    {/* Khoảng trống ký tên & đóng dấu */}
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 whitespace-nowrap">
+                    {config.principalName || ''}
+                  </p>
+                </td>
 
-            {/* Cột 2: TỔ TRƯỞNG */}
-            <div className="flex flex-col items-center">
-              <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight">
-                {config.headTeacherTitle || 'TỔ TRƯỞNG'}
-              </p>
-              <div className="h-20 sm:h-24 flex items-center justify-center">
-                {/* Khoảng trống ký tên */}
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-900">
-                {config.headTeacherName || ''}
-              </p>
-            </div>
+                {/* Cột 2: TỔ TRƯỜNG */}
+                <td className="w-[28%] border-none align-top text-center px-1">
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight whitespace-nowrap overflow-visible">
+                    {config.headTeacherTitle || 'TỔ TRƯỜNG'}
+                  </p>
+                  <div className="h-20 sm:h-24 flex items-center justify-center">
+                    {/* Khoảng trống ký tên */}
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 whitespace-nowrap">
+                    {config.headTeacherName || ''}
+                  </p>
+                </td>
 
-            {/* Cột 3: GIÁO VIÊN */}
-            <div className="flex flex-col items-center">
-              <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight">
-                {config.teacherTitle || 'GIÁO VIÊN'}
-              </p>
-              <div className="h-20 sm:h-24 flex items-center justify-center">
-                {/* Khoảng trống ký tên */}
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-900">
-                {config.teacherName || 'Nguyễn Thành Luân'}
-              </p>
-            </div>
-          </div>
+                {/* Cột 3: GIÁO VIÊN */}
+                <td className="w-[34%] border-none align-top text-center px-1">
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight whitespace-nowrap overflow-visible">
+                    {config.teacherTitle || 'GIÁO VIÊN'}
+                  </p>
+                  <div className="h-20 sm:h-24 flex items-center justify-center">
+                    {/* Khoảng trống ký tên */}
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 whitespace-nowrap">
+                    {config.teacherName || 'Nguyễn Thành Luân'}
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 

@@ -43,7 +43,7 @@ export async function exportLessonPlanToDocx(
               new TextRun({
                 text: line,
                 bold: true,
-                size: 26, // Cỡ chữ 13pt
+                size: 24, // Cỡ chữ 12pt
                 font: 'Times New Roman'
               })
             ]
@@ -52,7 +52,7 @@ export async function exportLessonPlanToDocx(
     });
   };
 
-  // Header Table (School name & Department on left, Republic Title on right)
+  // Header Table (School name & Department on left, Republic Title & Motto on right)
   const headerTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: borderNone,
@@ -60,7 +60,7 @@ export async function exportLessonPlanToDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
+            width: { size: 45, type: WidthType.PERCENTAGE },
             borders: borderNone,
             children: [
               new Paragraph({
@@ -68,7 +68,7 @@ export async function exportLessonPlanToDocx(
                 children: [
                   new TextRun({
                     text: (config.schoolName || 'TRƯỜNG TIỂU HỌC THẠNH YÊN 1').toUpperCase(),
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -80,7 +80,7 @@ export async function exportLessonPlanToDocx(
                     text: (config.departmentName || 'TỔ CHUYÊN MÔN 4+5').toUpperCase(),
                     bold: true,
                     underline: {},
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -88,7 +88,7 @@ export async function exportLessonPlanToDocx(
             ]
           }),
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
+            width: { size: 55, type: WidthType.PERCENTAGE },
             borders: borderNone,
             children: [
               new Paragraph({
@@ -97,7 +97,7 @@ export async function exportLessonPlanToDocx(
                   new TextRun({
                     text: (config.republicTitleTop || 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM').toUpperCase(),
                     bold: true,
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -109,7 +109,7 @@ export async function exportLessonPlanToDocx(
                     text: config.republicTitleSub || 'Độc lập – Tự do – Hạnh phúc',
                     bold: true,
                     underline: {},
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -160,7 +160,7 @@ export async function exportLessonPlanToDocx(
             new TextRun({
               text: getDayOfWeekName(row.dayOfWeek),
               bold: true,
-              size: 26, // Cỡ chữ 13pt
+              size: 24, // Cỡ chữ 12pt
               font: 'Times New Roman'
             })
           ]
@@ -203,7 +203,7 @@ export async function exportLessonPlanToDocx(
                 new TextRun({
                   text: row.session,
                   bold: true,
-                  size: 26, // Cỡ chữ 13pt
+                  size: 24, // Cỡ chữ 12pt
                   font: 'Times New Roman'
                 })
               ]
@@ -222,7 +222,7 @@ export async function exportLessonPlanToDocx(
             new TextRun({
               text: String(row.period),
               bold: true,
-              size: 26, // Cỡ chữ 13pt
+              size: 24, // Cỡ chữ 12pt
               font: 'Times New Roman'
             })
           ]
@@ -240,7 +240,7 @@ export async function exportLessonPlanToDocx(
             new TextRun({
               text: row.className || '',
               bold: true,
-              size: 26, // Cỡ chữ 13pt
+              size: 24, // Cỡ chữ 12pt
               font: 'Times New Roman'
             })
           ]
@@ -257,7 +257,7 @@ export async function exportLessonPlanToDocx(
           children: [
             new TextRun({
               text: row.subject || '',
-              size: 26, // Cỡ chữ 13pt
+              size: 24, // Cỡ chữ 12pt
               font: 'Times New Roman'
             })
           ]
@@ -273,7 +273,7 @@ export async function exportLessonPlanToDocx(
           children: [
             new TextRun({
               text: line,
-              size: 26, // Cỡ chữ 13pt
+              size: 24, // Cỡ chữ 12pt
               font: 'Times New Roman'
             })
           ]
@@ -294,7 +294,7 @@ export async function exportLessonPlanToDocx(
           children: [
             new TextRun({
               text: line,
-              size: 26, // Cỡ chữ 13pt
+              size: 24, // Cỡ chữ 12pt
               font: 'Times New Roman'
             })
           ]
@@ -328,7 +328,19 @@ export async function exportLessonPlanToDocx(
   });
 
   // Footer Signatures matching attached PDF:
-  // Date on right, then 3 columns: DUYỆT CỦA P.HIỆU TRƯỜNG | TỔ TRƯỞNG | GIÁO VIÊN
+  // Date on right, then 3 columns: DUYỆT CỦA P.HIỆU TRƯỜNG | TỔ TRƯỜNG | GIÁO VIÊN
+  const footerDateParagraph = new Paragraph({
+    alignment: AlignmentType.RIGHT,
+    children: [
+      new TextRun({
+        text: `${config.location || 'Vĩnh Hòa'}, ngày .... tháng .... năm ....`,
+        italics: true,
+        size: 24, // Cỡ chữ 12pt
+        font: 'Times New Roman'
+      })
+    ]
+  });
+
   const footerTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: borderNone,
@@ -336,33 +348,7 @@ export async function exportLessonPlanToDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 66, type: WidthType.PERCENTAGE },
-            borders: borderNone,
-            children: [new Paragraph({ text: '' })]
-          }),
-          new TableCell({
-            width: { size: 34, type: WidthType.PERCENTAGE },
-            borders: borderNone,
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: `${config.location || 'Vĩnh Hòa'}, ngày ... tháng ... năm ...`,
-                    italics: true,
-                    size: 26, // Cỡ chữ 13pt
-                    font: 'Times New Roman'
-                  })
-                ]
-              })
-            ]
-          })
-        ]
-      }),
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 33, type: WidthType.PERCENTAGE },
+            width: { size: 38, type: WidthType.PERCENTAGE },
             borders: borderNone,
             children: [
               new Paragraph({
@@ -371,7 +357,7 @@ export async function exportLessonPlanToDocx(
                   new TextRun({
                     text: (config.principalTitle || 'DUYỆT CỦA P.HIỆU TRƯỜNG').toUpperCase(),
                     bold: true,
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // Cỡ chữ 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -383,7 +369,36 @@ export async function exportLessonPlanToDocx(
                   new TextRun({
                     text: config.principalName || '',
                     bold: true,
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // Cỡ chữ 12pt
+                    font: 'Times New Roman'
+                  })
+                ]
+              })
+            ]
+          }),
+          new TableCell({
+            width: { size: 28, type: WidthType.PERCENTAGE },
+            borders: borderNone,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: (config.headTeacherTitle || 'TỔ TRƯỜNG').toUpperCase(),
+                    bold: true,
+                    size: 24, // Cỡ chữ 12pt
+                    font: 'Times New Roman'
+                  })
+                ]
+              }),
+              new Paragraph({ text: '\n\n\n\n' }),
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: config.headTeacherName || '',
+                    bold: true,
+                    size: 24, // Cỡ chữ 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -398,38 +413,9 @@ export async function exportLessonPlanToDocx(
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: (config.headTeacherTitle || 'TỔ TRƯỞNG').toUpperCase(),
-                    bold: true,
-                    size: 26, // Cỡ chữ 13pt
-                    font: 'Times New Roman'
-                  })
-                ]
-              }),
-              new Paragraph({ text: '\n\n\n\n' }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: config.headTeacherName || '',
-                    bold: true,
-                    size: 26, // Cỡ chữ 13pt
-                    font: 'Times New Roman'
-                  })
-                ]
-              })
-            ]
-          }),
-          new TableCell({
-            width: { size: 33, type: WidthType.PERCENTAGE },
-            borders: borderNone,
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
                     text: (config.teacherTitle || 'GIÁO VIÊN').toUpperCase(),
                     bold: true,
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // Cỡ chữ 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -441,7 +427,7 @@ export async function exportLessonPlanToDocx(
                   new TextRun({
                     text: config.teacherName || '',
                     bold: true,
-                    size: 26, // Cỡ chữ 13pt
+                    size: 24, // Cỡ chữ 12pt
                     font: 'Times New Roman'
                   })
                 ]
@@ -504,6 +490,8 @@ export async function exportLessonPlanToDocx(
           }),
           new Paragraph({ text: '' }),
           mainTable,
+          new Paragraph({ text: '' }),
+          footerDateParagraph,
           new Paragraph({ text: '' }),
           footerTable
         ]
