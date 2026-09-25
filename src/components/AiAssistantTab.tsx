@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { GoogleGenAI } from '@google/genai';
 import {
   Sparkles,
   BookOpen,
@@ -37,6 +38,10 @@ import {
   loadKhdhDataFromFirestore,
   getUserKhdhStorageKeys
 } from '../services/dbService';
+import {
+  analyzeLessonFileWithGemini,
+  generateLessonPlanWithGemini
+} from '../services/geminiService';
 
 interface UploadedFileInfo {
   name: string;
@@ -44,6 +49,280 @@ interface UploadedFileInfo {
   type: string;
   base64: string;
   previewUrl?: string;
+}
+
+function safeParseJSON(rawText: string | null | undefined): any {
+  if (!rawText) return null;
+  const cleaned = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      const jsonSub = cleaned.substring(firstBrace, lastBrace + 1);
+      try {
+        return JSON.parse(jsonSub);
+      } catch {
+        try {
+          const sanitized = jsonSub
+            .replace(/,\s*([}\]])/g, '$1')
+            .replace(/[\u0000-\u001F\u007F-\u009F]/g, (m) => (m === '\n' || m === '\r' || m === '\t' ? m : ''));
+          return JSON.parse(sanitized);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function analyzeLessonFileWithClientGemini(
+  files: UploadedFileInfo[],
+  apiKey: string
+): Promise<{ topic?: string; subject?: string; grade?: string; bookSeries?: string } | null> {
+  const apiKeyToUse = apiKey || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+  if (!apiKeyToUse.trim() || files.length === 0) return null;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: apiKeyToUse.trim() });
+    const parts: any[] = [];
+    for (const f of files) {
+      if (f.base64) {
+        const cleanBase64 = f.base64.replace(/^data:[^;]+;base64,/, '');
+        const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+        parts.push({
+          inlineData: {
+            data: cleanBase64,
+            mimeType: f.type || (isPdf ? 'application/pdf' : 'image/jpeg')
+          }
+        });
+      }
+    }
+
+    const promptText = `Bạn là chuyên gia giáo dục Việt Nam. Hãy quan sát và phân tích các hình ảnh/trang sách tài liệu giáo dục này.
+Hãy trích xuất chính xác:
+1. "topic": Tên bài học đầy đủ (Ví dụ: "Bài 1. Thông tin và quyết định", "Bài 15. Bảng nhân 7"... Lưu ý: bắt đầu bằng "Bài X. Tên bài").
+2. "subject": Môn học (Ví dụ: "Tin học", "Toán", "Tiếng Việt", "Tự nhiên và Xã hội", "Khoa học"...).
+3. "grade": Khối lớp dạng số chuỗi (Ví dụ: "3", "4", "5"...).
+4. "bookSeries": Bộ sách nếu nhận diện được (Ví dụ: "Kết nối tri thức với cuộc sống", "Cánh Diều", "Chân trời sáng tạo"...).
+
+Trả về DUY NHẤT một đối tượng JSON hợp lệ (không bọc trong markdown code fence):
+{
+  "topic": "Bài ...",
+  "subject": "Tin học",
+  "grade": "3",
+  "bookSeries": "Kết nối tri thức với cuộc sống"
+}`;
+
+    parts.push({ text: promptText });
+    const contents = [{ role: 'user', parts }];
+
+    for (const modelName of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: { responseMimeType: 'application/json' }
+        });
+        if (response.text) {
+          const parsed = safeParseJSON(response.text);
+          if (parsed && typeof parsed === 'object') {
+            return parsed;
+          }
+        }
+      } catch (mErr) {
+        console.warn(`Direct client analyze model ${modelName} error:`, mErr);
+      }
+    }
+  } catch (err) {
+    console.warn('Direct client analyze file error:', err);
+  }
+  return null;
+}
+
+async function generateLessonPlanWithClientGemini(params: {
+  topic: string;
+  grade: string;
+  subject: string;
+  totalPeriods: number;
+  bookSeries: string;
+  weekNumber: number;
+  timeRange: string;
+  startDateWeek1?: string;
+  ppctPeriodsText?: string;
+  ppctList?: PpctItem[];
+  integrationOptions: { nls: boolean; stem: boolean; cds: boolean };
+  attachedFiles?: UploadedFileInfo[];
+  apiKey: string;
+}): Promise<DetailedLessonPlan | null> {
+  const apiKeyToUse = params.apiKey || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+  if (!apiKeyToUse.trim()) return null;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: apiKeyToUse.trim() });
+    const parts: any[] = [];
+
+    if (params.attachedFiles && params.attachedFiles.length > 0) {
+      for (const f of params.attachedFiles) {
+        if (f.base64) {
+          const cleanBase64 = f.base64.replace(/^data:[^;]+;base64,/, '');
+          const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+          parts.push({
+            inlineData: {
+              data: cleanBase64,
+              mimeType: f.type || (isPdf ? 'application/pdf' : 'image/jpeg')
+            }
+          });
+        }
+      }
+    }
+
+    const promptText = `Bạn là một chuyên gia giáo dục xuất sắc tại Việt Nam. Nhiệm vụ của bạn là SOẠN KẾ HOẠCH DẠY HỌC (GIÁO ÁN) CỰC KỲ CHI TIẾT, ĐẦY ĐỦ, CHUẨN KHOA HỌC VÀ BÁM SÁT SGK & PHÂN PHỐI CHƯƠNG TRÌNH (PPCT).
+
+${params.attachedFiles && params.attachedFiles.length > 0 ? 'LƯU Ý BẮT BUỘC KHI CÓ HÌNH ẢNH/TỆP ĐÍNH KÈM: Người dùng đã đính kèm tệp tài liệu/trang sách/PDF. Bạn PHẢI trích xuất và phân tích sâu toàn bộ kiến thức, hình vẽ, câu hỏi, bài tập, ví dụ và hoạt động có trong tài liệu này để đưa vào giáo án.' : ''}
+
+Thông tin bài dạy:
+- Tiêu đề văn bản: KẾ HOẠCH DẠY HỌC - TUẦN ${params.weekNumber}
+- Tên bài dạy / chủ đề: "${params.topic}"
+- Môn học: ${params.subject}
+- Khối lớp: Lớp ${params.grade}
+- Bộ sách: ${params.bookSeries}
+- Tổng số tiết: ${params.totalPeriods} tiết.
+- Tuần theo PPCT: TUẦN ${params.weekNumber}
+- Tiết theo PPCT: ${params.ppctPeriodsText || `Tiết 1 - ${params.totalPeriods} theo PPCT`}
+- Thời gian thực hiện: ${params.timeRange}
+- Tùy chọn tích hợp chuyên đề: Năng lực số=${params.integrationOptions.nls ? 'CÓ' : 'KHÔNG'}, STEM=${params.integrationOptions.stem ? 'CÓ' : 'KHÔNG'}, Công dân số=${params.integrationOptions.cds ? 'CÓ' : 'KHÔNG'}.
+
+QUY ĐỊNH BẮT BUỘC VỀ SOẠN GIÁO ÁN:
+1. Mỗi tiết học phải đầy đủ các phần: Header, I. YÊU CẦU CẦN ĐẠT (1. Năng lực đặc thù, 2. Năng lực chung, 3. Phẩm chất, 4. Nội dung tích hợp NLS/STEM/CĐS nếu chọn), II. ĐỒ DÙNG DẠY HỌC (GV, HS), III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU (4 hoạt động: 1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập thực hành, 4. Vận dụng trải nghiệm).
+2. Các hoạt động phải được chia thành các Nhiệm vụ, mỗi Nhiệm vụ gồm 4 bước quy chuẩn:
+   - Bước 1: Chuyển giao nhiệm vụ
+   - Bước 2: Thực hiện nhiệm vụ
+   - Bước 3: Báo cáo kết quả
+   - Bước 4: Đánh giá, kết luận
+3. Nội dung hoạt động của GV và HS phải được diễn giải RẤT CHI TIẾT, KHOA HỌC, SƯ PHẠM, BÁM SÁT THỰC TẾ BÀI HỌC VÀ TỆP ĐÍNH KÈM (nếu có).
+4. Nếu có chọn tích hợp Năng lực số: Đưa mã chỉ báo chuẩn dạng [1.3.CB1a] hoặc [4.1.CB2a] vào hoạt động thích hợp.
+5. Nếu có chọn Giáo dục STEM: Soạn chuẩn 4 pha STEM (Pha 1: Xác định vấn đề; Pha 2: Nghiên cứu kiến thức nền; Pha 3: Chế tạo & thử nghiệm; Pha 4: Trưng bày & cải tiến).
+6. Nếu có chọn Công dân số: Tự động trích dẫn bài học phù hợp từ SGK Hành trình Công dân số Lớp ${params.grade} (Bài 1, Bài 2, Bài 3...) và đưa tình huống ứng xử số văn minh vào hoạt động vận dụng.
+
+Trả về DUY NHẤT một đối tượng JSON hợp lệ (không bọc trong markdown code fence) có cấu trúc:
+{
+  "topic": "${params.topic}",
+  "subject": "${params.subject}",
+  "grade": "${params.grade}",
+  "totalPeriods": ${params.totalPeriods},
+  "bookSeries": "${params.bookSeries}",
+  "weekNumber": ${params.weekNumber},
+  "timeRange": "${params.timeRange}",
+  "ppctPeriodsText": "${params.ppctPeriodsText || ''}",
+  "periodPlans": [
+    {
+      "periodIndex": 1,
+      "weekNumber": ${params.weekNumber},
+      "ppctPeriodIndex": 1,
+      "ppctPeriodsText": "Tiết 1 (Tuần ${params.weekNumber}) theo PPCT",
+      "timeRange": "${params.timeRange}",
+      "header": {
+        "subject": "${params.subject}",
+        "grade": "${params.grade}",
+        "title": "${params.topic} (${params.totalPeriods} tiết) ; Tiết 1",
+        "timeRange": "${params.timeRange}",
+        "weekNumber": ${params.weekNumber}
+      },
+      "objectives": {
+        "specificCompetencies": ["..."],
+        "generalCompetencies": ["..."],
+        "qualities": ["..."],
+        "integrationContent": ["..."]
+      },
+      "teachingTools": {
+        "teacher": ["..."],
+        "student": ["..."]
+      },
+      "activities": [
+        {
+          "activityNumber": 1,
+          "activityName": "1. Khởi động (5 phút)",
+          "timeEstimate": "5 phút",
+          "integrationNote": "...",
+          "tasks": [
+            {
+              "taskId": "task-1-1-1",
+              "taskTitle": "* Nhiệm vụ 1: ...",
+              "integrationNote": "...",
+              "steps": [
+                {
+                  "stepNumber": 1,
+                  "stepName": "Bước 1: Chuyển giao nhiệm vụ",
+                  "teacherAction": "...",
+                  "studentAction": "..."
+                },
+                {
+                  "stepNumber": 2,
+                  "stepName": "Bước 2: Thực hiện nhiệm vụ",
+                  "teacherAction": "...",
+                  "studentAction": "..."
+                },
+                {
+                  "stepNumber": 3,
+                  "stepName": "Bước 3: Báo cáo kết quả",
+                  "teacherAction": "...",
+                  "studentAction": "..."
+                },
+                {
+                  "stepNumber": 4,
+                  "stepName": "Bước 4: Đánh giá, kết luận",
+                  "teacherAction": "...",
+                  "studentAction": "..."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "postLessonAdjustment": "...................................................................................................."
+    }
+  ]
+}`;
+
+    parts.push({ text: promptText });
+    const contents = [{ role: 'user', parts }];
+
+    for (const modelName of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro']) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: { responseMimeType: 'application/json' }
+        });
+        if (response.text) {
+          const parsed = safeParseJSON(response.text);
+          if (parsed && parsed.periodPlans && Array.isArray(parsed.periodPlans) && parsed.periodPlans.length > 0) {
+            return {
+              id: `plan-${Date.now()}`,
+              topic: parsed.topic || params.topic,
+              subject: parsed.subject || params.subject,
+              grade: parsed.grade || params.grade,
+              totalPeriods: parsed.totalPeriods || params.totalPeriods,
+              bookSeries: parsed.bookSeries || params.bookSeries,
+              weekNumber: parsed.weekNumber || params.weekNumber,
+              timeRange: parsed.timeRange || params.timeRange,
+              ppctPeriodsText: parsed.ppctPeriodsText || params.ppctPeriodsText,
+              createdAt: new Date().toISOString(),
+              periodPlans: parsed.periodPlans
+            };
+          }
+        }
+      } catch (mErr) {
+        console.warn(`Direct client Gemini model ${modelName} notice:`, mErr);
+      }
+    }
+  } catch (err) {
+    console.warn('Direct client Gemini initialization notice:', err);
+  }
+  return null;
 }
 
 interface AiAssistantTabProps {
@@ -436,19 +715,38 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
             `✨ Đã phân tích thành công ${updatedFiles.length} hình ảnh: "${data.topic || updatedFiles[0].name}"`
           );
         } else {
+          // Attempt direct client Gemini analysis if server API is unavailable (e.g. Vercel deployment)
+          const clientData = await analyzeLessonFileWithGemini(updatedFiles, customApiKey);
+          if (clientData && clientData.topic) {
+            setTopic(clientData.topic);
+            if (clientData.subject) setSubject(clientData.subject);
+            if (clientData.grade) setGrade(clientData.grade.toString());
+            if (clientData.bookSeries) setBookSeries(clientData.bookSeries);
+            setFileAnalysisNote(`✨ AI Gemini nhận diện thành công: "${clientData.topic}"`);
+          } else {
+            const firstImage = updatedFiles.find((f) => f.type.startsWith('image/')) || updatedFiles[0];
+            const cleanedName = firstImage.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim();
+            const guessed = cleanedName.startsWith('Bài') ? cleanedName : `Bài học: ${cleanedName}`;
+            setTopic(guessed);
+            setFileAnalysisNote(`✨ Đã nhận diện tên bài học từ ${updatedFiles.length} tệp hình ảnh.`);
+          }
+        }
+      } catch (err) {
+        console.warn('Server analyze endpoint notice, switching to client Gemini:', err);
+        const clientData = await analyzeLessonFileWithGemini(updatedFiles, customApiKey);
+        if (clientData && clientData.topic) {
+          setTopic(clientData.topic);
+          if (clientData.subject) setSubject(clientData.subject);
+          if (clientData.grade) setGrade(clientData.grade.toString());
+          if (clientData.bookSeries) setBookSeries(clientData.bookSeries);
+          setFileAnalysisNote(`✨ AI Gemini nhận diện thành công: "${clientData.topic}"`);
+        } else {
           const firstImage = updatedFiles.find((f) => f.type.startsWith('image/')) || updatedFiles[0];
           const cleanedName = firstImage.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim();
           const guessed = cleanedName.startsWith('Bài') ? cleanedName : `Bài học: ${cleanedName}`;
           setTopic(guessed);
           setFileAnalysisNote(`✨ Đã nhận diện tên bài học từ ${updatedFiles.length} tệp hình ảnh.`);
         }
-      } catch (err) {
-        console.warn('Error analyzing image files:', err);
-        const firstImage = updatedFiles.find((f) => f.type.startsWith('image/')) || updatedFiles[0];
-        const cleanedName = firstImage.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim();
-        const guessed = cleanedName.startsWith('Bài') ? cleanedName : `Bài học: ${cleanedName}`;
-        setTopic(guessed);
-        setFileAnalysisNote(`✨ Đã nhận diện tên bài học từ ${updatedFiles.length} tệp hình ảnh.`);
       } finally {
         setIsAnalyzingFile(false);
       }
@@ -624,31 +922,31 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
           tasks: [
             {
               taskId: `task-${p}-2-1`,
-              taskTitle: `* Nhiệm vụ 1: Quan sát tranh và khám phá nội dung phần ${isPeriod1 ? '1' : '3'} trong SGK`,
+              taskTitle: `* Nhiệm vụ 1: Quan sát tranh và khám phá nội dung bài học "${cleanTopic}"`,
               steps: [
                 {
                   stepNumber: 1,
                   stepName: 'Bước 1: Chuyển giao nhiệm vụ',
-                  teacherAction: `GV yêu cầu học sinh mở SGK trang 8, làm việc theo cặp đôi: đọc kỹ văn bản hướng dẫn và quan sát chi tiết Hình 1, Hình 2 trong SGK mục ${isPeriod1 ? '1' : '3'}. GV diễn giải rõ yêu cầu: 'Các em hãy chú ý quan sát màu sắc, hình dáng và các ký hiệu được đánh số trong sơ đồ để chuẩn bị trả lời câu hỏi khám phá.'`,
-                  studentAction: `HS mở SGK trang 8, cùng bạn ngồi bên cạnh đọc thầm nội dung bài học, tập trung quan sát từng chi tiết trên Hình 1, Hình 2 và trao đổi nhẹ nhàng với bạn.`
+                  teacherAction: `GV yêu cầu học sinh mở SGK môn ${inputSubject} Lớp ${inputGrade}, làm việc theo cặp đôi: đọc kỹ nội dung bài học "${cleanTopic}" và quan sát các sơ đồ, hình ảnh minh họa đính kèm mục ${isPeriod1 ? '1' : '3'}. GV diễn giải rõ yêu cầu: 'Các em hãy chú ý quan sát nội dung và các chi tiết được thể hiện trong bài "${cleanTopic}" để chuẩn bị trả lời câu hỏi khám phá.'`,
+                  studentAction: `HS mở SGK bài "${cleanTopic}", cùng bạn ngồi bên cạnh đọc thầm nội dung bài học, tập trung quan sát từng chi tiết minh họa và trao đổi nhẹ nhàng với bạn.`
                 },
                 {
                   stepNumber: 2,
                   stepName: 'Bước 2: Thực hiện nhiệm vụ',
-                  teacherAction: `GV đặt câu hỏi gợi mở tỉ mỉ: 'Qua quan sát Hình 1 và Hình 2, em hãy cho biết điểm giống và khác nhau giữa các thành phần? Điều này giúp ích gì cho bài học?' GV diễn giải ví dụ minh họa thực tế để các em dễ hình dung, sau đó bao quát lớp và gợi ý cho các nhóm còn lúng túng.`,
-                  studentAction: `HS thảo luận sôi nổi theo cặp: HS1 chỉ ra các chi tiết quan sát được, HS2 lắng nghe và diễn giải bổ sung lý do (Ví dụ: 'Tớ thấy ở Hình 1 thể hiện... vì...'). [1.3.${nlsLevel}a: HS tra cứu và chỉ ra thông tin tương ứng trên thiết bị học tập].`
+                  teacherAction: `GV đặt câu hỏi gợi mở tỉ mỉ: 'Qua quan sát nội dung bài học "${cleanTopic}", em hãy cho biết những điểm cần lưu ý và rút ra nhận xét? Điều này giúp ích gì cho bài học?' GV diễn giải ví dụ minh họa thực tế liên quan đến "${cleanTopic}", sau đó bao quát lớp và gợi ý cho các nhóm còn lúng túng.`,
+                  studentAction: `HS thảo luận sôi nổi theo cặp: HS1 chỉ ra các chi tiết quan sát được trong bài "${cleanTopic}", HS2 lắng nghe và diễn giải bổ sung lý do. [1.3.${nlsLevel}a: HS tra cứu và chỉ ra thông tin tương ứng trên thiết bị học tập].`
                 },
                 {
                   stepNumber: 3,
                   stepName: 'Bước 3: Báo cáo kết quả',
                   teacherAction: `GV mời đại diện 2 nhóm đứng dậy báo cáo kết quả thảo luận trước lớp, yêu cầu trình bày rõ ràng từng bước diễn giải và chỉ vào hình ảnh minh họa trên SGK/bảng lớp.`,
-                  studentAction: `HS đại diện nhóm 1 tự tin đứng dậy phát biểu: 'Thưa thầy/cô, nhóm em xin trình bày: Qua quan sát Hình 1 trang 8 SGK, nhóm em nhận thấy... Lí do là vì...'. Đại diện nhóm 2 lắng nghe, giơ tay nhận xét và bổ sung chi tiết.`
+                  studentAction: `HS đại diện nhóm 1 tự tin đứng dậy phát biểu: 'Thưa thầy/cô, nhóm em xin trình bày: Qua quan sát tài liệu bài "${cleanTopic}", nhóm em nhận thấy... Lí do là vì...'. Đại diện nhóm 2 lắng nghe, giơ tay nhận xét và bổ sung chi tiết.`
                 },
                 {
                   stepNumber: 4,
                   stepName: 'Bước 4: Đánh giá, kết luận',
-                  teacherAction: `GV nhận xét câu trả lời của các nhóm, chuẩn hóa kiến thức và chốt nội dung trọng tâm trên bảng lớp.`,
-                  studentAction: `HS lắng nghe, ghi nhớ kết luận và ghi nội dung trọng tâm vào vở ghi chép.`
+                  teacherAction: `GV nhận xét câu trả lời của các nhóm, chuẩn hóa kiến thức bài "${cleanTopic}" và chốt nội dung trọng tâm trên bảng lớp.`,
+                  studentAction: `HS lắng nghe, ghi nhớ kết luận và ghi nội dung trọng tâm bài "${cleanTopic}" vào vở ghi chép.`
                 }
               ]
             },
@@ -936,7 +1234,29 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         }
       }
 
-      // If server responds without structured plan or server unavailable, use standard fallback generator
+      // If server responds without structured plan or server unavailable (e.g. Vercel deployment), attempt direct client Gemini generation
+      const clientPlan = await generateLessonPlanWithGemini({
+        topic: topic.trim(),
+        grade,
+        subject,
+        totalPeriods,
+        bookSeries,
+        weekNumber,
+        timeRange,
+        startDateWeek1: schoolConfig.startDateWeek1,
+        ppctPeriodsText,
+        ppctList: ppctList.length > 0 ? ppctList : undefined,
+        integrationOptions: { nls: enableNls, stem: enableStem, cds: enableCds },
+        attachedFiles: uploadedFiles,
+        apiKey: customApiKey
+      });
+
+      if (clientPlan && clientPlan.periodPlans && clientPlan.periodPlans.length > 0) {
+        setCurrentPlan(clientPlan);
+        setSelectedPeriodTab(0);
+        return;
+      }
+
       const fallback = generateFallbackLessonPlan(
         topic,
         subject,
@@ -950,8 +1270,33 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       );
       setCurrentPlan(fallback);
       setSelectedPeriodTab(0);
+      if (!customApiKey && !(import.meta.env.VITE_GEMINI_API_KEY as string)) {
+        setShowApiKeyModal(true);
+      }
     } catch (err) {
-      console.warn('Using client generator due to API error:', err);
+      console.warn('Notice calling server endpoint, attempting client Gemini direct generation:', err);
+      const clientPlan = await generateLessonPlanWithGemini({
+        topic: topic.trim(),
+        grade,
+        subject,
+        totalPeriods,
+        bookSeries,
+        weekNumber,
+        timeRange,
+        startDateWeek1: schoolConfig.startDateWeek1,
+        ppctPeriodsText,
+        ppctList: ppctList.length > 0 ? ppctList : undefined,
+        integrationOptions: { nls: enableNls, stem: enableStem, cds: enableCds },
+        attachedFiles: uploadedFiles,
+        apiKey: customApiKey
+      });
+
+      if (clientPlan && clientPlan.periodPlans && clientPlan.periodPlans.length > 0) {
+        setCurrentPlan(clientPlan);
+        setSelectedPeriodTab(0);
+        return;
+      }
+
       const fallback = generateFallbackLessonPlan(
         topic,
         subject,
@@ -965,6 +1310,9 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       );
       setCurrentPlan(fallback);
       setSelectedPeriodTab(0);
+      if (!customApiKey && !(import.meta.env.VITE_GEMINI_API_KEY as string)) {
+        setShowApiKeyModal(true);
+      }
     } finally {
       setIsLoading(false);
     }
