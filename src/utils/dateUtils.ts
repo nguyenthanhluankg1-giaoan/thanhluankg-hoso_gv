@@ -23,18 +23,38 @@ export function formatDateVN(date: Date): string {
 
 /**
  * Tính ngày Thứ Hai của tuần thứ `weekNumber` dựa trên ngày bắt đầu tuần 1
+ * và các mốc tùy chỉnh ngày theo tuần (VD: sau khi nghỉ Tết, nghỉ lễ)
  */
-export function getMondayOfWeek(startDateWeek1Str: string, weekNumber: number): Date {
-  const baseDate = parseDate(startDateWeek1Str);
-  // Ensure we are working from Monday of baseDate
+export function getMondayOfWeek(
+  startDateWeek1Str: string,
+  weekNumber: number,
+  weekStartOverrides?: Record<number, string>
+): Date {
+  let baseWeekNumber = 1;
+  let baseDateStr = startDateWeek1Str || '2024-09-09';
+
+  if (weekStartOverrides) {
+    // Tìm tuần tùy chỉnh lớn nhất trong danh sách mà <= weekNumber
+    const overrideWeeks = Object.keys(weekStartOverrides)
+      .map(Number)
+      .filter((w) => !isNaN(w) && w <= weekNumber && Boolean(weekStartOverrides[w]))
+      .sort((a, b) => b - a);
+
+    if (overrideWeeks.length > 0) {
+      baseWeekNumber = overrideWeeks[0];
+      baseDateStr = weekStartOverrides[baseWeekNumber];
+    }
+  }
+
+  const baseDate = parseDate(baseDateStr);
   const day = baseDate.getDay(); // 0 is Sunday, 1 is Monday...
   const diffToMonday = day === 0 ? -6 : 1 - day;
-  const mondayWeek1 = new Date(baseDate);
-  mondayWeek1.setDate(baseDate.getDate() + diffToMonday);
+  const baseMonday = new Date(baseDate);
+  baseMonday.setDate(baseDate.getDate() + diffToMonday);
 
-  // Add (weekNumber - 1) * 7 days
-  const monday = new Date(mondayWeek1);
-  monday.setDate(mondayWeek1.getDate() + (weekNumber - 1) * 7);
+  // Tính tịnh tiến liền kề: (weekNumber - baseWeekNumber) * 7 ngày
+  const monday = new Date(baseMonday);
+  monday.setDate(baseMonday.getDate() + (weekNumber - baseWeekNumber) * 7);
   return monday;
 }
 
@@ -43,9 +63,10 @@ export function getMondayOfWeek(startDateWeek1Str: string, weekNumber: number): 
  */
 export function getWeekDateRange(
   startDateWeek1Str: string,
-  weekNumber: number
+  weekNumber: number,
+  weekStartOverrides?: Record<number, string>
 ): { startDate: string; endDate: string; mondayDate: Date; fridayDate: Date } {
-  const monday = getMondayOfWeek(startDateWeek1Str, weekNumber);
+  const monday = getMondayOfWeek(startDateWeek1Str, weekNumber, weekStartOverrides);
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
 
@@ -63,9 +84,10 @@ export function getWeekDateRange(
 export function getDateForDayOfWeek(
   startDateWeek1Str: string,
   weekNumber: number,
-  dayOfWeek: number
+  dayOfWeek: number,
+  weekStartOverrides?: Record<number, string>
 ): string {
-  const monday = getMondayOfWeek(startDateWeek1Str, weekNumber);
+  const monday = getMondayOfWeek(startDateWeek1Str, weekNumber, weekStartOverrides);
   // dayOfWeek: 2 = Mon (offset 0), 3 = Tue (offset 1), ..., 7 = Sat (offset 5)
   const offset = Math.max(0, dayOfWeek - 2);
   const targetDate = new Date(monday);

@@ -264,89 +264,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* Nội dung nạp vào theo thư mục đang chọn (lập tức load, không mở rộng accordion) */}
+          {/* Nội dung nạp vào theo thư mục đang chọn */}
           {activeFolder === 'classroom' ? (
-            <div className="space-y-1 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between px-2 py-0.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>Tác vụ lớp học</span>
-                <span>{navItems.length} mục</span>
+            <div className="space-y-2 animate-in fade-in duration-150 p-1">
+              <div className="p-3 rounded-2xl bg-teal-50/80 border border-teal-200/80 text-teal-900 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-black text-teal-800">
+                  <School className="w-4 h-4 text-teal-600" />
+                  <span>Quản lý lớp học</span>
+                </div>
+                <p className="text-[11px] font-medium text-slate-600 leading-snug">
+                  Tất cả <span className="font-bold text-teal-700">{navItems.length} công cụ</span> được hiển thị đầy đủ trên thanh chọn phía trên bên phải.
+                </p>
               </div>
-              <nav className="space-y-0.5">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentPage === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        onNavigate(item.id);
-                        onClose();
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl font-bold text-[13px] transition-all text-left cursor-pointer ${
-                        isActive
-                          ? 'bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md shadow-teal-600/25'
-                          : 'text-slate-700 hover:bg-teal-50/80 hover:text-teal-800 hover:translate-x-0.5'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="flex-1 truncate">{item.label}</span>
-                      {item.badge && (
-                        <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                            isActive
-                              ? 'bg-white/25 text-white'
-                              : item.badge === 'HOT'
-                              ? 'bg-rose-100 text-rose-600'
-                              : item.badge === 'NEW'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-teal-100 text-teal-700'
-                          }`}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
             </div>
           ) : (
-            <div className="space-y-1 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between px-2 py-0.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>KẾ HOẠCH DẠY HỌC</span>
-                <span>{khdhItems.length} mục</span>
+            <div className="space-y-2 animate-in fade-in duration-150 p-1">
+              <div className="p-3 rounded-2xl bg-teal-50/80 border border-teal-200/80 text-teal-900 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-black text-teal-800">
+                  <FileText className="w-4 h-4 text-teal-600" />
+                  <span>Kế hoạch dạy học (KHDH)</span>
+                </div>
+                <p className="text-[11px] font-medium text-slate-600 leading-snug">
+                  Tất cả <span className="font-bold text-teal-700">{khdhItems.length} công cụ</span> được hiển thị đầy đủ trên thanh chọn phía trên bên phải.
+                </p>
               </div>
-              <nav className="space-y-0.5">
-                {khdhItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentPage === 'khdh' && khdhTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleSelectKhdhItem(item.id)}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl font-bold text-[13px] transition-all text-left cursor-pointer ${
-                        isActive
-                          ? 'bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md shadow-teal-600/25'
-                          : 'text-slate-700 hover:bg-teal-50/80 hover:text-teal-800 hover:translate-x-0.5'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="flex-1 truncate">{item.label}</span>
-                      {item.badge && (
-                        <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                            isActive
-                              ? 'bg-white/25 text-white'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
             </div>
           )}
         </div>

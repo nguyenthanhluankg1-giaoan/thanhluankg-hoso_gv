@@ -22,6 +22,7 @@ import {
 import { LoginScreen } from './components/LoginScreen';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
+import { ClassroomNavBar } from './components/ClassroomNavBar';
 import { GuideModal } from './components/GuideModal';
 
 import { HomeTab } from './components/tabs/HomeTab';
@@ -360,6 +361,17 @@ export default function App() {
           onLogout={handleLogout}
           dbConnected={dbConnected}
         />
+
+        {/* Thanh chọn công cụ Quản lý lớp học ở bên phải (như mục Soạn giáo án) */}
+        {state.currentPage !== 'khdh' && (
+          <ClassroomNavBar
+            currentPage={state.currentPage}
+            onNavigate={handleNavigate}
+            studentCount={activeStudents.length}
+            currentUser={currentUser}
+            activeClassName={activeClass?.name}
+          />
+        )}
 
         {/* Tab content area */}
         <main className="flex-1 pb-10">

@@ -262,6 +262,7 @@ export interface SchoolConfig {
   subjectTitle: string;
   academicYear: string;
   startDateWeek1: string; // YYYY-MM-DD (Thứ Hai tuần 1)
+  weekStartOverrides?: Record<number, string>; // Tùy chỉnh ngày bắt đầu theo tuần (ví dụ: { 22: '2025-02-10' } sau khi nghỉ Tết)
   location: string;
   principalTitle: string;
   principalName: string;

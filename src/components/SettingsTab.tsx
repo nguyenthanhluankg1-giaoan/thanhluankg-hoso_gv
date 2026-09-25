@@ -172,6 +172,49 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 />
               </div>
             </div>
+
+            {/* Mốc nghỉ Tết / Tùy chỉnh ngày bắt đầu tuần */}
+            <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200/80 space-y-2 mt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-teal-900">
+                    🗓️ Tùy chỉnh mốc tuần sau nghỉ Tết / Nghỉ lễ
+                  </h4>
+                  <p className="text-[11px] text-teal-700 font-medium">
+                    Hệ thống sẽ tự động tính ngày các tuần tiếp theo nối tiếp theo mốc mớI.
+                  </p>
+                </div>
+              </div>
+
+              {formData.weekStartOverrides && Object.keys(formData.weekStartOverrides).length > 0 ? (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {Object.entries(formData.weekStartOverrides).map(([wNum, wDate]) => (
+                    <div
+                      key={wNum}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-teal-200 text-xs font-bold text-slate-800 shadow-2xs"
+                    >
+                      <span>Tuần {wNum}: {wDate}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = { ...(formData.weekStartOverrides || {}) };
+                          delete updated[Number(wNum)];
+                          setFormData({ ...formData, weekStartOverrides: updated });
+                        }}
+                        className="text-rose-500 hover:text-rose-700 font-black ml-1 text-xs cursor-pointer"
+                        title="Xóa mốc tùy chỉnh này"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500 italic">
+                  Chưa có mốc tùy chỉnh. Các tuần đang tự động nối tiếp liền kề từ Tuần 1.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Section 3: Chức danh & Người ký */}

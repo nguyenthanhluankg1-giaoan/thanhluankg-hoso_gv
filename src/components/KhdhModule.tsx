@@ -264,6 +264,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({ currentUser: propCurrent
             customizedWeeks={customizedWeeks}
             onSaveWeekRows={handleSaveWeekRows}
             onResetWeekRows={handleResetWeekRows}
+            onUpdateConfig={setConfig}
           />
         )}
 
