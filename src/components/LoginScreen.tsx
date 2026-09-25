@@ -94,7 +94,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             )}
           </div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            HỒ SƠ GIÁO DỤC
+            HỒ SƠ GIÁO VIÊN
           </h1>
           <p className="text-xs sm:text-sm font-semibold text-teal-700 mt-1 flex items-center justify-center gap-1.5">
             <School className="w-4 h-4" />

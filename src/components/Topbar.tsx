@@ -1,7 +1,8 @@
 import React from 'react';
-import { CheckCircle2, Menu, Database, LogOut, ShieldCheck, UserCheck } from 'lucide-react';
+import { CheckCircle2, Menu, Database, LogOut, ShieldCheck, UserCheck, Smartphone, Tablet, Monitor } from 'lucide-react';
 import { ClassInfo, TeacherProfile, UserAccount } from '../types';
 import { Avatar } from './Avatar';
+import { useDeviceDetect } from '../hooks/useDeviceDetect';
 
 interface TopbarProps {
   title: string;
@@ -32,21 +33,31 @@ export const Topbar: React.FC<TopbarProps> = ({
   onLogout,
   dbConnected = true
 }) => {
+  const { isMobile, isTablet, screenWidth } = useDeviceDetect();
+
   return (
-    <header className="sticky top-3.5 z-30 bg-white/95 backdrop-blur-md border-2 border-teal-200/80 rounded-3xl shadow-lg shadow-teal-900/5 p-3 sm:px-5 sm:py-3.5 flex items-center justify-between gap-3">
-      {/* Page titles */}
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="sticky top-2 z-30 bg-white/95 backdrop-blur-md border-2 border-teal-200/80 rounded-2xl sm:rounded-3xl shadow-lg shadow-teal-900/5 p-2 sm:px-5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-3 transition-all">
+      {/* Page titles & mobile menu trigger */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={onOpenMobileSidebar}
-          className="p-2 rounded-xl border border-teal-200 text-teal-700 lg:hidden hover:bg-teal-50 cursor-pointer"
+          className="p-2 rounded-xl border border-teal-200 text-teal-700 lg:hidden hover:bg-teal-50 cursor-pointer shrink-0"
           aria-label="Mở menu"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="min-w-0">
-          <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-black text-slate-800 tracking-tight truncate">
-            {title}
-          </h1>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h1 className="text-sm sm:text-lg md:text-xl lg:text-2xl font-black text-slate-800 tracking-tight truncate">
+              {title}
+            </h1>
+            {isMobile && (
+              <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1 shrink-0" title={`Nhận diện thiết bị di động (${screenWidth}px) - Tự động co giãn giao diện`}>
+                <Smartphone className="w-2.5 h-2.5 text-teal-600" />
+                <span>Auto-Fit</span>
+              </span>
+            )}
+          </div>
           <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate hidden sm:block mt-0.5">
             {subtitle}
           </p>

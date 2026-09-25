@@ -187,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
               <div>
                 <h2 className="font-extrabold text-teal-800 text-[15px] leading-tight tracking-tight">
-                  HỒ SƠ GIÁO DỤC
+                  HỒ SƠ GIÁO VIÊN
                 </h2>
                 <span className="text-[11px] font-semibold text-slate-500 block mt-0.5">
                   Bảng điều khiển giáo viên

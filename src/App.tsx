@@ -329,7 +329,7 @@ export default function App() {
   const pageInfo = getPageInfo();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50/70 via-emerald-50/40 to-teal-100/30 text-slate-800 flex">
+    <div className="min-h-screen min-h-[100dvh] w-full overflow-x-hidden bg-gradient-to-br from-teal-50/70 via-emerald-50/40 to-teal-100/30 text-slate-800 flex flex-col lg:flex-row relative">
       {/* Sidebar navigation */}
       <Sidebar
         currentPage={state.currentPage}
