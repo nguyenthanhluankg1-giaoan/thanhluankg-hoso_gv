@@ -75,7 +75,7 @@ export default function App() {
             <h1 className="text-2xl font-bold text-gray-900 leading-tight">
               NGUYỄN THÀNH LUÂN-TRƯỜNG TIỂU HỌC THẠNH YÊN 1
             </h1>
-            <p className="text-sm text-gray-500">Tạo giáo án theo chuẩn Công văn 1001 nhanh chóng và hiệu quả.</p>
+            <p className="text-sm text-gray-500">Tạo giáo án theo chuẩn Công văn 2345 nhanh chóng và hiệu quả.</p>
           </div>
           <button
             onClick={handleLogout}

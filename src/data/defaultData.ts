@@ -15,7 +15,7 @@ export const defaultSchoolConfig: SchoolConfig = {
   headTeacherTitle: 'TỔ TRƯỞNG',
   headTeacherName: '',
   teacherTitle: 'GIÁO VIÊN',
-  teacherName: 'Nguyễn Tấn Luận'
+  teacherName: 'Nguyễn Thành Luân'
 };
 
 export const defaultPpctList: PpctItem[] = [];
