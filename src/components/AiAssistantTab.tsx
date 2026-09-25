@@ -335,9 +335,9 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
   const [grade, setGrade] = useState<string>('3');
   const [totalPeriods, setTotalPeriods] = useState<number>(2);
   const [bookSeries, setBookSeries] = useState<string>('GDPT 2018');
-  const [enableNls, setEnableNls] = useState<boolean>(true);
-  const [enableStem, setEnableStem] = useState<boolean>(true);
-  const [enableCds, setEnableCds] = useState<boolean>(true);
+  const [enableNls, setEnableNls] = useState<boolean>(false);
+  const [enableStem, setEnableStem] = useState<boolean>(false);
+  const [enableCds, setEnableCds] = useState<boolean>(false);
 
   // PPCT and Week / TimeRange State
   const [ppctList, setPpctList] = useState<PpctItem[]>([]);
