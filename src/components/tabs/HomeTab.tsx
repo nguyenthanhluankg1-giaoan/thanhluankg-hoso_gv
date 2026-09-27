@@ -373,30 +373,35 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
       </div>
 
       {/* Main Grid: Thi đua visualizer & Top students */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left: Competition visualizer */}
-        <div className="lg:col-span-7 bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md">
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left: Competition visualizer with independent scroll */}
+        <div className="lg:col-span-7 bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md flex flex-col max-h-[480px]">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
             <div>
-              <h3 className="text-base font-black text-slate-800">Biểu đồ thi đua học sinh</h3>
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                <span>Biểu đồ thi đua học sinh</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-100 text-teal-800">
+                  {students.length} HS
+                </span>
+              </h3>
               <p className="text-xs text-slate-500">Học sinh có số bông hoa tích lũy cao nhất hiện tại</p>
             </div>
             <button
               onClick={() => onNavigate('stats')}
-              className="text-xs font-extrabold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+              className="text-xs font-extrabold text-teal-600 hover:text-teal-700 flex items-center gap-1 cursor-pointer"
             >
               <span>Xem tất cả</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="space-y-3">
-            {sortedStudents.slice(0, 7).map((student, idx) => {
+          <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+            {sortedStudents.map((student, idx) => {
               const safeMax = Math.max(1, maxCoins || 0);
               const rawPct = Math.round(((student.coins || 0) / safeMax) * 100);
               const pct = isNaN(rawPct) ? 8 : Math.max(8, Math.min(100, rawPct));
               return (
-                <div key={student.id} className="flex items-center gap-3">
+                <div key={student.id} className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-slate-50 transition-colors">
                   <div className="w-5 text-xs font-bold text-slate-400 text-center">{idx + 1}</div>
                   <Avatar name={student.name} avatar={student.avatar} size="md" />
                   <div className="w-28 sm:w-36 truncate font-bold text-xs text-slate-800">
@@ -408,7 +413,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <div className="w-14 text-right text-xs font-black text-rose-600 flex items-center justify-end gap-1">
+                  <div className="w-14 text-right text-xs font-black text-rose-600 flex items-center justify-end gap-1 shrink-0">
                     <span>🌺</span>
                     <span>{student.coins || 0}</span>
                   </div>
@@ -423,61 +428,90 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
           </div>
         </div>
 
-        {/* Right: Top Rank list */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+        {/* Right: Top Rank list & Activity Feed with independent scroll */}
+        <div className="lg:col-span-5 bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md flex flex-col max-h-[480px]">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
+            <div className="flex items-center gap-2">
               <h3 className="text-base font-black text-slate-800">Bảng Vàng Thi Đua</h3>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">
-                Top 5
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                Thanh trượt riêng 📜
               </span>
             </div>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">
+              Top {topStudents.length}
+            </span>
+          </div>
 
-            <div className="space-y-2.5">
-              {topStudents.map((s, idx) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-slate-50 to-teal-50/40 border border-teal-50 hover:border-teal-200 transition-all"
-                >
-                  <div className="flex items-center gap-3">
+          <div className="flex-1 overflow-y-auto pr-2 space-y-2.5 custom-scrollbar">
+            {topStudents.map((s, idx) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-slate-50 to-teal-50/40 border border-teal-50 hover:border-teal-200 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                      idx === 0
+                        ? 'bg-amber-400 text-amber-950 shadow-sm shadow-amber-400/30'
+                        : idx === 1
+                        ? 'bg-slate-300 text-slate-800'
+                        : idx === 2
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-teal-100 text-teal-800'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                  <Avatar name={s.name} avatar={s.avatar} size="md" />
+                  <div>
+                    <div className="font-bold text-xs text-slate-800">{s.name}</div>
+                    <div className="text-[10px] text-slate-500">
+                      {s.gender || 'Học sinh'} {s.note ? `· ${s.note}` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-800 font-extrabold text-xs shrink-0">
+                  <span>🌺</span>
+                  <span>{s.coins || 0}</span>
+                </div>
+              </div>
+            ))}
+
+            {topStudents.length === 0 && (
+              <div className="py-6 text-center text-slate-400 text-xs">
+                Chưa có thông tin học sinh
+              </div>
+            )}
+
+            {/* Recent star transaction logs */}
+            {classTransactions.length > 0 && (
+              <div className="pt-3 mt-2 border-t border-slate-100">
+                <span className="block text-[11px] font-extrabold text-slate-600 mb-2">
+                  Lịch sử thưởng hoa mới nhất:
+                </span>
+                <div className="space-y-1.5">
+                  {classTransactions.slice(0, 5).map((tx) => (
                     <div
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs ${
-                        idx === 0
-                          ? 'bg-amber-400 text-amber-950 shadow-sm shadow-amber-400/30'
-                          : idx === 1
-                          ? 'bg-slate-300 text-slate-800'
-                          : idx === 2
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-teal-100 text-teal-800'
-                      }`}
+                      key={tx.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-teal-50/40 border border-teal-100/60 text-xs"
                     >
-                      {idx + 1}
-                    </div>
-                    <Avatar name={s.name} avatar={s.avatar} size="md" />
-                    <div>
-                      <div className="font-bold text-xs text-slate-800">{s.name}</div>
-                      <div className="text-[10px] text-slate-500">
-                        {s.gender || 'Học sinh'} {s.note ? `· ${s.note}` : ''}
+                      <div className="truncate pr-2">
+                        <span className="font-bold text-slate-800">{tx.studentName}: </span>
+                        <span className="text-slate-600 text-[11px]">{tx.reason}</span>
                       </div>
+                      <span className={`font-black text-xs shrink-0 ${tx.amount >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {tx.amount >= 0 ? `+${tx.amount}🌺` : `${tx.amount}🌺`}
+                      </span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-800 font-extrabold text-xs">
-                    <span>🌺</span>
-                    <span>{s.coins || 0}</span>
-                  </div>
+                  ))}
                 </div>
-              ))}
-              {topStudents.length === 0 && (
-                <div className="py-6 text-center text-slate-400 text-xs">
-                  Chưa có thông tin học sinh
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <button
             onClick={() => onNavigate('students')}
-            className="w-full mt-4 py-2.5 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-extrabold text-xs transition-colors flex items-center justify-center gap-1.5"
+            className="w-full mt-3 py-2.5 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-extrabold text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
           >
             <span>Xem và cộng/trừ hoa cho học sinh</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -486,51 +520,53 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
       </div>
 
       {/* Bottom Grid: Today's lessons & Quick shortcuts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         {/* Today's lessons */}
-        <div className="bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+        <div className="bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md flex flex-col max-h-[320px]">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-teal-600" />
               <h3 className="text-base font-black text-slate-800">Thời khóa biểu hôm nay</h3>
             </div>
             <button
               onClick={() => onNavigate('timetable')}
-              className="text-xs font-bold text-teal-600 hover:text-teal-700"
+              className="text-xs font-bold text-teal-600 hover:text-teal-700 cursor-pointer"
             >
               Xem cả tuần
             </button>
           </div>
 
-          {todayLessons.length > 0 ? (
-            <div className="space-y-2">
-              {todayLessons.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-teal-50/50 border-l-4 border-teal-600"
-                >
-                  <div>
-                    <strong className="text-sm font-extrabold text-slate-800">
-                      {lesson.subject}
-                    </strong>
-                    <div className="text-xs text-slate-500 mt-0.5">Tiết: {lesson.slot}</div>
+          <div className="flex-1 overflow-y-auto pr-1.5 custom-scrollbar">
+            {todayLessons.length > 0 ? (
+              <div className="space-y-2">
+                {todayLessons.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-teal-50/50 border-l-4 border-teal-600"
+                  >
+                    <div>
+                      <strong className="text-sm font-extrabold text-slate-800">
+                        {lesson.subject}
+                      </strong>
+                      <div className="text-xs text-slate-500 mt-0.5">Tiết: {lesson.slot}</div>
+                    </div>
+                    <span className="text-xs font-bold text-teal-800 bg-teal-100/70 px-2.5 py-1 rounded-xl">
+                      {lesson.time}
+                    </span>
                   </div>
-                  <span className="text-xs font-bold text-teal-800 bg-teal-100/70 px-2.5 py-1 rounded-xl">
-                    {lesson.time}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-8 text-center text-slate-400 text-xs">
-              Hôm nay chưa có tiết học được lên lịch. Bạn có thể vào mục Thời khóa biểu để xếp lịch dạy!
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Hôm nay chưa có tiết học được lên lịch. Bạn có thể vào mục Thời khóa biểu để xếp lịch dạy!
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Quick actions */}
-        <div className="bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md flex flex-col justify-between">
-          <div>
+        <div className="bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md flex flex-col justify-between max-h-[320px]">
+          <div className="overflow-y-auto pr-1 custom-scrollbar">
             <div className="pb-3 mb-3 border-b border-slate-100">
               <h3 className="text-base font-black text-slate-800">Thao tác lớp học nhanh</h3>
               <p className="text-xs text-slate-500">Các công cụ hỗ trợ trực tiếp trong giờ dạy</p>
@@ -539,7 +575,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={() => onNavigate('attendance')}
-                className="p-3.5 rounded-2xl border-2 border-teal-100 hover:border-teal-400 bg-teal-50/50 hover:bg-teal-50 text-slate-800 font-bold text-xs flex flex-col items-center text-center gap-2 transition-all shadow-sm"
+                className="p-3.5 rounded-2xl border-2 border-teal-100 hover:border-teal-400 bg-teal-50/50 hover:bg-teal-50 text-slate-800 font-bold text-xs flex flex-col items-center text-center gap-2 transition-all shadow-sm cursor-pointer"
               >
                 <ClipboardCheck className="w-6 h-6 text-teal-600" />
                 <span>Điểm danh lớp</span>
@@ -547,7 +583,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
 
               <button
                 onClick={() => onNavigate('seating')}
-                className="p-3.5 rounded-2xl border-2 border-sky-100 hover:border-sky-400 bg-sky-50/50 hover:bg-sky-50 text-slate-800 font-bold text-xs flex flex-col items-center text-center gap-2 transition-all shadow-sm"
+                className="p-3.5 rounded-2xl border-2 border-sky-100 hover:border-sky-400 bg-sky-50/50 hover:bg-sky-50 text-slate-800 font-bold text-xs flex flex-col items-center text-center gap-2 transition-all shadow-sm cursor-pointer"
               >
                 <LayoutGrid className="w-6 h-6 text-sky-600" />
                 <span>Sơ đồ chỗ ngồi</span>
@@ -555,7 +591,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
 
               <button
                 onClick={() => onNavigate('countdown')}
-                className="p-3.5 rounded-2xl border-2 border-amber-100 hover:border-amber-400 bg-amber-50/50 hover:bg-amber-50 text-slate-800 font-bold text-xs flex flex-col items-center text-center gap-2 transition-all shadow-sm"
+                className="p-3.5 rounded-2xl border-2 border-amber-100 hover:border-amber-400 bg-amber-50/50 hover:bg-amber-50 text-slate-800 font-bold text-xs flex flex-col items-center text-center gap-2 transition-all shadow-sm cursor-pointer"
               >
                 <Timer className="w-6 h-6 text-amber-600" />
                 <span>Đồng hồ đếm ngược</span>
@@ -563,11 +599,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
             </div>
           </div>
 
-          <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-600">Bạn muốn tổ chức trò chơi?</span>
+          <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs shrink-0">
+            <span className="text-slate-600 font-medium">Bạn muốn tổ chức trò chơi?</span>
             <button
               onClick={() => onNavigate('wheel')}
-              className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold"
+              className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold cursor-pointer transition-colors"
             >
               Mở Lồng Cầu May Mắn
             </button>

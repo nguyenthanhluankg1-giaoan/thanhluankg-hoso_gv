@@ -61,6 +61,47 @@ export function removeVietnameseTones(str: string): string {
     .trim();
 }
 
+export function getAccountExpirationInfo(user?: UserAccount | null): {
+  remainingDays: number | null;
+  isExpired: boolean;
+  formattedExpiresAt: string | null;
+  activeDaysTotal: number | null;
+} {
+  if (!user || user.role === 'admin' || !user.expiresAt) {
+    return {
+      remainingDays: null,
+      isExpired: false,
+      formattedExpiresAt: 'Vĩnh viễn',
+      activeDaysTotal: user?.activeDays || null
+    };
+  }
+
+  const expTime = new Date(user.expiresAt).getTime();
+  if (isNaN(expTime)) {
+    return {
+      remainingDays: null,
+      isExpired: false,
+      formattedExpiresAt: 'Vĩnh viễn',
+      activeDaysTotal: user?.activeDays || null
+    };
+  }
+
+  const diffMs = expTime - Date.now();
+  const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const isExpired = remainingDays <= 0;
+
+  const d = new Date(expTime);
+  const z = (n: number) => String(n).padStart(2, '0');
+  const formattedExpiresAt = `${z(d.getDate())}/${z(d.getMonth() + 1)}/${d.getFullYear()}`;
+
+  return {
+    remainingDays,
+    isExpired,
+    formattedExpiresAt,
+    activeDaysTotal: user.activeDays || null
+  };
+}
+
 export function getDefaultState(): AppState {
   const cls = 'class_default';
 

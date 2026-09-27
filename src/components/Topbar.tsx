@@ -1,8 +1,9 @@
 import React from 'react';
-import { CheckCircle2, Menu, Database, LogOut, ShieldCheck, UserCheck, Smartphone, Tablet, Monitor } from 'lucide-react';
+import { CheckCircle2, Menu, Database, LogOut, ShieldCheck, UserCheck, Smartphone, Clock, AlertTriangle, Infinity } from 'lucide-react';
 import { ClassInfo, TeacherProfile, UserAccount } from '../types';
 import { Avatar } from './Avatar';
 import { useDeviceDetect } from '../hooks/useDeviceDetect';
+import { getAccountExpirationInfo } from '../utils/helpers';
 
 interface TopbarProps {
   title: string;
@@ -66,6 +67,54 @@ export const Topbar: React.FC<TopbarProps> = ({
 
       {/* Top right actions */}
       <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+        {/* Active Days Remaining Badge */}
+        {(() => {
+          const expInfo = getAccountExpirationInfo(currentUser);
+          if (currentUser?.role === 'admin' || expInfo.remainingDays === null) {
+            return (
+              <div
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 font-extrabold text-[11px]"
+                title="Tài khoản hoạt động vĩnh viễn (Không giới hạn số ngày)"
+              >
+                <Infinity className="w-3.5 h-3.5 text-teal-600" />
+                <span className="hidden sm:inline">Thời hạn: Vĩnh viễn</span>
+                <span className="sm:hidden">Vĩnh viễn</span>
+              </div>
+            );
+          }
+          if (expInfo.remainingDays > 7) {
+            return (
+              <div
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-900 font-extrabold text-[11px]"
+                title={`Mốc hết hạn: ${expInfo.formattedExpiresAt}. Hãy liên hệ Quản trị viên để gia hạn khi hết hạn.`}
+              >
+                <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Còn {expInfo.remainingDays} ngày</span>
+              </div>
+            );
+          }
+          if (expInfo.remainingDays > 0) {
+            return (
+              <div
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 font-black text-[11px] animate-pulse"
+                title={`Cảnh báo: Tài khoản sẽ hết hạn vào ngày ${expInfo.formattedExpiresAt}. Vui lòng liên hệ Admin để gia hạn!`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                <span>Còn {expInfo.remainingDays} ngày (Sắp hết)</span>
+              </div>
+            );
+          }
+          return (
+            <div
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-rose-100 border border-rose-300 text-rose-900 font-black text-[11px] animate-pulse"
+              title={`Tài khoản đã hết hạn từ ngày ${expInfo.formattedExpiresAt}. Cần gia hạn để tiếp tục sử dụng.`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+              <span>Hết quyền sử dụng</span>
+            </div>
+          );
+        })()}
+
         {/* Workspace isolation indicator */}
         {currentUser?.role !== 'admin' ? (
           <div

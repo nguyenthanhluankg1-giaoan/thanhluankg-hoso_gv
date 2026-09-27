@@ -24,7 +24,10 @@ import {
   Mail,
   Calendar,
   Sparkles,
-  X
+  X,
+  Clock,
+  CalendarPlus,
+  Infinity
 } from 'lucide-react';
 import { UserAccount, ClassInfo } from '../../types';
 import { Avatar } from '../Avatar';
@@ -33,7 +36,7 @@ import {
   deleteUserFromFirestore,
   fetchUsersFromFirestore
 } from '../../services/dbService';
-import { uid } from '../../utils/helpers';
+import { uid, getAccountExpirationInfo } from '../../utils/helpers';
 
 interface AccountsTabProps {
   users: UserAccount[];
@@ -62,6 +65,15 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
   const [passwordModalUser, setPasswordModalUser] = useState<UserAccount | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
+  // Renew modal states
+  const [renewModalUser, setRenewModalUser] = useState<UserAccount | null>(null);
+  const [renewDaysToAdd, setRenewDaysToAdd] = useState<number>(30);
+
+  // Bulk update active days state
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkDays, setBulkDays] = useState<number>(30);
+  const [bulkTarget, setBulkTarget] = useState<'unset' | 'all'>('unset');
+
   // Visible password toggles: Record<userId, boolean>
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
 
@@ -78,6 +90,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     year: '2026 - 2027',
     phone: '',
     note: '',
+    activeDays: 30, // Mặc định cấp phép 30 ngày cho tài khoản mới
     assignedClasses: [] as string[]
   });
 
@@ -119,6 +132,13 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       return;
     }
 
+    // Calculate expiration if activeDays > 0
+    let expiresAt: string | undefined = undefined;
+    if (formData.activeDays && formData.activeDays > 0) {
+      const exp = new Date(Date.now() + formData.activeDays * 24 * 60 * 60 * 1000);
+      expiresAt = exp.toISOString();
+    }
+
     const newUser: UserAccount = {
       id: uid('usr'),
       username: cleanUsername,
@@ -133,6 +153,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       status: 'active',
       phone: formData.phone.trim(),
       note: formData.note.trim(),
+      activeDays: formData.activeDays > 0 ? formData.activeDays : undefined,
+      expiresAt: expiresAt,
       createdAt: new Date().toISOString()
     };
 
@@ -142,7 +164,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     setIsRefreshing(false);
 
     if (ok) {
-      showToast(`Tạo thành công tài khoản giáo viên "${newUser.name}" (${newUser.teacherType === 'GVCN' ? 'GVCN' : 'GVBM'}) trên Database!`);
+      showToast(`Tạo thành công tài khoản "${newUser.name}" với thời hạn ${formData.activeDays > 0 ? `${formData.activeDays} ngày` : 'Vĩnh viễn'}!`);
       setCreateModalOpen(false);
       // Reset form
       setFormData({
@@ -157,12 +179,100 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
         year: '2026 - 2027',
         phone: '',
         note: '',
+        activeDays: 30,
         assignedClasses: []
       });
     } else {
       showToast('Đã lưu tài khoản cục bộ (kết nối Firestore đang bận).', 'success');
       setCreateModalOpen(false);
     }
+  };
+
+  // Handle Quick Renew / Extend Days
+  const handleRenewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renewModalUser) return;
+
+    let newExpiresAt: string | undefined;
+    let newActiveDays: number | undefined;
+
+    if (renewDaysToAdd <= 0) {
+      // Set to unlimited
+      newExpiresAt = undefined;
+      newActiveDays = undefined;
+    } else {
+      const currentExpTime = renewModalUser.expiresAt ? new Date(renewModalUser.expiresAt).getTime() : 0;
+      const baseTime = currentExpTime > Date.now() ? currentExpTime : Date.now();
+      const newTime = baseTime + renewDaysToAdd * 24 * 60 * 60 * 1000;
+      newExpiresAt = new Date(newTime).toISOString();
+      newActiveDays = (renewModalUser.activeDays || 0) + renewDaysToAdd;
+    }
+
+    const updatedUser: UserAccount = {
+      ...renewModalUser,
+      activeDays: newActiveDays,
+      expiresAt: newExpiresAt,
+      status: 'active' // Auto-unlock if it was locked or expired
+    };
+
+    setIsRefreshing(true);
+    const ok = await saveUserToFirestore(updatedUser);
+    await onRefreshUsers();
+    setIsRefreshing(false);
+
+    if (ok) {
+      const expInfo = getAccountExpirationInfo(updatedUser);
+      showToast(
+        renewDaysToAdd > 0
+          ? `Đã gia hạn thành công +${renewDaysToAdd} ngày cho tài khoản "${updatedUser.name}"! Hạn mới: ${expInfo.formattedExpiresAt}`
+          : `Đã chuyển tài khoản "${updatedUser.name}" sang chế độ Vĩnh viễn!`
+      );
+    } else {
+      showToast('Cập nhật thông tin cục bộ thành công.');
+    }
+    setRenewModalUser(null);
+  };
+
+  // Handle Bulk Update Active Days for existing accounts
+  const handleBulkUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsRefreshing(true);
+
+    let updatedCount = 0;
+    for (const u of users) {
+      if (u.role === 'admin') continue; // Skip admin
+
+      const isUnset = !u.expiresAt;
+      const needsUpdate = bulkTarget === 'all' || (bulkTarget === 'unset' && isUnset);
+
+      if (needsUpdate) {
+        let newExpiresAt: string | undefined;
+        let newActiveDays: number | undefined;
+
+        if (bulkDays > 0) {
+          newActiveDays = bulkDays;
+          newExpiresAt = new Date(Date.now() + bulkDays * 24 * 60 * 60 * 1000).toISOString();
+        }
+
+        const updated: UserAccount = {
+          ...u,
+          activeDays: newActiveDays,
+          expiresAt: newExpiresAt,
+          status: 'active'
+        };
+
+        await saveUserToFirestore(updated);
+        updatedCount++;
+      }
+    }
+
+    await onRefreshUsers();
+    setIsRefreshing(false);
+    setBulkModalOpen(false);
+
+    showToast(
+      `Đã cập nhật ${bulkDays > 0 ? `thời hạn ${bulkDays} ngày` : 'chế độ Vĩnh viễn'} cho ${updatedCount} tài khoản giáo viên!`
+    );
   };
 
   // Handle Edit User
@@ -408,6 +518,16 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
             <span className="hidden sm:inline">Đồng bộ</span>
           </button>
 
+          {/* Bulk Update Active Days Button */}
+          <button
+            onClick={() => setBulkModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-amber-500/25 flex items-center gap-1.5 cursor-pointer transition-all"
+            title="Gán/Cấp số ngày hoạt động đồng loạt cho các tài khoản đã tạo trước đó"
+          >
+            <Clock className="w-4 h-4" />
+            <span>⚡ Cấp ngày cho TK cũ</span>
+          </button>
+
           {/* Add Teacher Button */}
           <button
             onClick={() => setCreateModalOpen(true)}
@@ -533,8 +653,56 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                         )}
                       </div>
 
+                      {/* Expiration and Active Days Info Line */}
+                      {(() => {
+                        const expInfo = getAccountExpirationInfo(user);
+                        return (
+                          <div className="flex items-center gap-1.5 flex-wrap mt-2 pt-2 border-t border-slate-100 text-xs">
+                            <span className="font-bold text-slate-500 flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-teal-600" />
+                              <span>Thời hạn hoạt động:</span>
+                            </span>
+                            {user.role === 'admin' || expInfo.remainingDays === null ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 font-extrabold text-[11px] flex items-center gap-1">
+                                <Infinity className="w-3 h-3 text-teal-600" />
+                                <span>Vĩnh viễn</span>
+                              </span>
+                            ) : expInfo.remainingDays > 7 ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-900 font-extrabold text-[11px] flex items-center gap-1">
+                                <span>Còn {expInfo.remainingDays} ngày (Hạn: {expInfo.formattedExpiresAt})</span>
+                              </span>
+                            ) : expInfo.remainingDays > 0 ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 font-black text-[11px] flex items-center gap-1 animate-pulse">
+                                <AlertCircle className="w-3 h-3 text-amber-700" />
+                                <span>Còn {expInfo.remainingDays} ngày (Hạn: {expInfo.formattedExpiresAt})</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full bg-rose-100 border border-rose-300 text-rose-900 font-black text-[11px] flex items-center gap-1 animate-pulse">
+                                <AlertCircle className="w-3 h-3 text-rose-600" />
+                                <span>🔴 Hết quyền sử dụng ({expInfo.formattedExpiresAt})</span>
+                              </span>
+                            )}
+
+                            {user.role !== 'admin' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRenewModalUser(user);
+                                  setRenewDaysToAdd(30);
+                                }}
+                                className="px-2.5 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] flex items-center gap-1 shadow-sm cursor-pointer transition-colors ml-auto sm:ml-0"
+                                title="Gia hạn thêm số ngày hoạt động"
+                              >
+                                <CalendarPlus className="w-3 h-3" />
+                                <span>Gia hạn +ngày</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {/* Password line (visible to Admin) */}
-                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-xs">
+                      <div className="flex items-center gap-2 mt-1.5 text-xs">
                         <KeyRound className="w-3.5 h-3.5 text-amber-600" />
                         <span className="font-bold text-slate-500">Mật khẩu:</span>
                         <code className="bg-amber-50 border border-amber-200 text-amber-900 px-2 py-0.5 rounded font-mono font-bold tracking-wider">
@@ -807,6 +975,60 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                 />
               </div>
 
+              {/* Active Days Selection */}
+              {formData.role === 'teacher' && (
+                <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-black text-amber-950 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span>Số ngày cho phép tài khoản hoạt động:</span>
+                    </label>
+                    <span className="text-[11px] font-bold text-amber-800">
+                      {formData.activeDays > 0 ? `Cấp phép ${formData.activeDays} ngày` : 'Không giới hạn (Vĩnh viễn)'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="3650"
+                      value={formData.activeDays}
+                      onChange={(e) => setFormData({ ...formData, activeDays: parseInt(e.target.value) || 0 })}
+                      placeholder="Nhập số ngày (ví dụ: 30, 60, 365... hoặc 0 là vĩnh viễn)"
+                      className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-mono font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Preset quick buttons */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[10px] font-bold text-amber-900">Chọn nhanh:</span>
+                    {[
+                      { label: '30 ngày', days: 30 },
+                      { label: '60 ngày', days: 60 },
+                      { label: '90 ngày', days: 90 },
+                      { label: '1 năm (365 ngày)', days: 365 },
+                      { label: 'Vĩnh viễn', days: 0 }
+                    ].map((preset) => (
+                      <button
+                        key={preset.days}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, activeDays: preset.days })}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                          formData.activeDays === preset.days
+                            ? 'bg-amber-600 text-white shadow-sm'
+                            : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-100'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-amber-800 italic">
+                    Gợi ý: Tài khoản sẽ tự động bị khóa và báo hết quyền khi số ngày hoạt động đếm lùi về 0.
+                  </p>
+                </div>
+              )}
               <div className="p-3 rounded-2xl bg-teal-50/70 border border-teal-200 text-xs text-teal-900 font-medium">
                 <p className="flex items-center gap-1.5 font-bold mb-0.5">
                   <Database className="w-3.5 h-3.5 text-teal-700" />
@@ -950,6 +1172,104 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                 />
               </div>
 
+              {/* Active Days Selection for Existing Account */}
+              {editUser.role === 'teacher' && (
+                <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-black text-amber-950 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span>Cấu hình / Cấp số ngày hoạt động:</span>
+                    </label>
+                    {(() => {
+                      const currentExp = getAccountExpirationInfo(editUser);
+                      return (
+                        <span className="text-[11px] font-bold text-amber-900">
+                          {currentExp.remainingDays === null
+                            ? 'Hiện tại: Vĩnh viễn'
+                            : currentExp.isExpired
+                            ? `Đã hết hạn (${currentExp.formattedExpiresAt})`
+                            : `Còn ${currentExp.remainingDays} ngày (Đến ${currentExp.formattedExpiresAt})`}
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-amber-900 mb-1">
+                        Đặt tổng số ngày mới từ hôm nay:
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="3650"
+                        value={editUser.activeDays || 0}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          if (val > 0) {
+                            setEditUser({
+                              ...editUser,
+                              activeDays: val,
+                              expiresAt: new Date(Date.now() + val * 24 * 60 * 60 * 1000).toISOString()
+                            });
+                          } else {
+                            setEditUser({
+                              ...editUser,
+                              activeDays: undefined,
+                              expiresAt: undefined
+                            });
+                          }
+                        }}
+                        placeholder="0 = Vĩnh viễn"
+                        className="w-full px-3 py-1.5 rounded-xl border border-amber-300 bg-white text-xs font-mono font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-amber-900 mb-1">
+                        Hoặc chọn nhanh gói ngày:
+                      </label>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {[
+                          { label: '30 ngày', days: 30 },
+                          { label: '60 ngày', days: 60 },
+                          { label: '90 ngày', days: 90 },
+                          { label: '365 ngày', days: 365 },
+                          { label: 'Vĩnh viễn', days: 0 }
+                        ].map((preset) => (
+                          <button
+                            key={preset.days}
+                            type="button"
+                            onClick={() => {
+                              if (preset.days > 0) {
+                                setEditUser({
+                                  ...editUser,
+                                  activeDays: preset.days,
+                                  expiresAt: new Date(Date.now() + preset.days * 24 * 60 * 60 * 1000).toISOString()
+                                });
+                              } else {
+                                setEditUser({
+                                  ...editUser,
+                                  activeDays: undefined,
+                                  expiresAt: undefined
+                                });
+                              }
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                              (preset.days === 0 && !editUser.expiresAt) || (editUser.activeDays === preset.days)
+                                ? 'bg-amber-600 text-white shadow-sm'
+                                : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-100'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -1023,6 +1343,231 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-amber-600/25 cursor-pointer"
                 >
                   Cập Nhật Mật Khẩu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: RENEW / EXTEND ACTIVE DAYS */}
+      {renewModalUser && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-emerald-300 w-full max-w-md p-5 sm:p-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-emerald-900">
+                <CalendarPlus className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-black text-lg">Gia Hạn Số Ngày Hoạt Động</h3>
+              </div>
+              <button
+                onClick={() => setRenewModalUser(null)}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRenewSubmit} className="space-y-4 mt-4">
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 font-medium space-y-1">
+                <div className="font-extrabold text-sm text-emerald-900">
+                  {renewModalUser.name} <span className="font-mono text-xs font-bold text-teal-800">(@{renewModalUser.username})</span>
+                </div>
+                {(() => {
+                  const currentExp = getAccountExpirationInfo(renewModalUser);
+                  return (
+                    <div className="text-xs text-slate-700">
+                      Trạng thái hiện tại:{' '}
+                      <strong className={currentExp.isExpired ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>
+                        {currentExp.remainingDays === null
+                          ? 'Vĩnh viễn'
+                          : currentExp.isExpired
+                          ? `Đã hết hạn (${currentExp.formattedExpiresAt})`
+                          : `Còn ${currentExp.remainingDays} ngày (Đến ${currentExp.formattedExpiresAt})`}
+                      </strong>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nhập số ngày muốn cộng thêm:
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="3650"
+                  required
+                  value={renewDaysToAdd}
+                  onChange={(e) => setRenewDaysToAdd(parseInt(e.target.value) || 0)}
+                  placeholder="Nhập số ngày (ví dụ: 30, 60, 90, 365... hoặc 0 để chuyển vĩnh viễn)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-bold font-mono outline-none text-slate-800"
+                />
+              </div>
+
+              {/* Preset buttons */}
+              <div>
+                <span className="block text-xs font-bold text-slate-600 mb-1.5">Chọn nhanh gói gia hạn:</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { label: '+30 ngày (1 tháng)', days: 30 },
+                    { label: '+60 ngày (2 tháng)', days: 60 },
+                    { label: '+90 ngày (1 quý)', days: 90 },
+                    { label: '+365 ngày (1 năm)', days: 365 },
+                    { label: 'Chuyển Vĩnh Viễn', days: 0 }
+                  ].map((btn) => (
+                    <button
+                      key={btn.days}
+                      type="button"
+                      onClick={() => setRenewDaysToAdd(btn.days)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                        renewDaysToAdd === btn.days
+                          ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+                          : 'bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-900 border border-slate-200'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-medium">
+                💡 <strong>Lưu ý:</strong> Số ngày sẽ được cộng thêm nối tiếp vào mốc thời hạn hiện tại của giáo viên (hoặc tính từ ngày hôm nay nếu tài khoản đã hết hạn).
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRenewModalUser(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/25 cursor-pointer"
+                >
+                  Xác Nhận Gia Hạn
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BULK UPDATE ACTIVE DAYS FOR PRE-EXISTING ACCOUNTS */}
+      {bulkModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-amber-300 w-full max-w-md p-5 sm:p-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-amber-900">
+                <Clock className="w-5 h-5 text-amber-600" />
+                <h3 className="font-black text-lg">Cấp Ngày Hoạt Động Hàng Loạt</h3>
+              </div>
+              <button
+                onClick={() => setBulkModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkUpdateSubmit} className="space-y-4 mt-4">
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 font-medium space-y-1">
+                <div className="font-extrabold text-sm text-amber-900 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>Áp dụng cho các tài khoản đã tạo trước đây:</span>
+                </div>
+                <p>
+                  Tính năng này giúp Quản trị viên nhanh chóng cập nhật số ngày hoạt động tính từ ngày hôm nay cho các tài khoản giáo viên đã được tạo sẵn trong hệ thống.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Đối tượng áp dụng:
+                </label>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="bulkTarget"
+                      checked={bulkTarget === 'unset'}
+                      onChange={() => setBulkTarget('unset')}
+                      className="text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Chỉ các tài khoản CHƯA CÓ thời hạn (Tài khoản cũ)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="bulkTarget"
+                      checked={bulkTarget === 'all'}
+                      onChange={() => setBulkTarget('all')}
+                      className="text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>TẤT CẢ tài khoản giáo viên hiện có trong hệ thống</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nhập số ngày hoạt động cấp phép:
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="3650"
+                  required
+                  value={bulkDays}
+                  onChange={(e) => setBulkDays(parseInt(e.target.value) || 0)}
+                  placeholder="Ví dụ: 30, 60, 90, 365... hoặc 0 cho Vĩnh viễn"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-sm font-bold font-mono outline-none text-slate-800"
+                />
+              </div>
+
+              {/* Presets */}
+              <div>
+                <span className="block text-xs font-bold text-slate-600 mb-1.5">Chọn nhanh:</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { label: '30 ngày', days: 30 },
+                    { label: '60 ngày', days: 60 },
+                    { label: '90 ngày', days: 90 },
+                    { label: '365 ngày (1 năm)', days: 365 },
+                    { label: 'Vĩnh viễn', days: 0 }
+                  ].map((btn) => (
+                    <button
+                      key={btn.days}
+                      type="button"
+                      onClick={() => setBulkDays(btn.days)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                        bulkDays === btn.days
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-900 border border-slate-200'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setBulkModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-amber-600/25 cursor-pointer"
+                >
+                  Áp Dụng Hàng Loạt
                 </button>
               </div>
             </form>

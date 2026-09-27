@@ -16,6 +16,8 @@ export interface UserAccount {
   note?: string;
   createdAt: string;
   lastLogin?: string;
+  activeDays?: number; // Số ngày được cấp phép hoạt động
+  expiresAt?: string; // Mốc thời gian ISO hết hạn hoạt động
 }
 
 export interface Student {

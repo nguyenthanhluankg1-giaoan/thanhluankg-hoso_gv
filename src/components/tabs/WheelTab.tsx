@@ -329,8 +329,8 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
           </div>
         </div>
 
-        {/* Right: Controls & History */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* Right: Controls & History (Independent Scroll) */}
+        <div className="lg:col-span-4 space-y-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto custom-scrollbar pr-1">
           {/* Settings Card */}
           <div className="bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md space-y-4">
             <h3 className="font-extrabold text-sm text-slate-800">Cấu hình lồng cầu</h3>

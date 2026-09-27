@@ -1463,9 +1463,9 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Generator Form & File Upload */}
-        <div className="lg:col-span-4 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Generator Form & File Upload (Independent scroll & pinned) */}
+        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto custom-scrollbar pr-1">
           <form
             onSubmit={handleGenerate}
             className="bg-white rounded-3xl p-5 border-2 border-teal-100 shadow-md space-y-4"
@@ -1874,8 +1874,8 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
           </form>
         </div>
 
-        {/* Right Column: Generated Lesson Plan Display */}
-        <div className="lg:col-span-8 space-y-4">
+        {/* Right Column: Generated Lesson Plan Display (Independent scroll) */}
+        <div className="lg:col-span-8 space-y-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto custom-scrollbar pr-1">
           {!currentPlan && !isLoading && (
             <div className="bg-white rounded-3xl p-8 border-2 border-dashed border-teal-200 text-center space-y-4 min-h-[420px] flex flex-col items-center justify-center">
               <div className="w-16 h-16 rounded-3xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600">
@@ -1978,7 +1978,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
               </div>
 
               {/* Lesson Plan Content Preview (A4 Paper Aesthetic) */}
-              <div className="p-6 sm:p-8 bg-white max-h-[75vh] overflow-y-auto space-y-8 font-serif text-[13pt] leading-relaxed text-slate-800">
+              <div className="p-6 sm:p-8 bg-white max-h-[75vh] overflow-y-auto custom-scrollbar space-y-8 font-serif text-[13pt] leading-relaxed text-slate-800">
                 {periodsToDisplay.map((period, pIdx) => {
                   const pWeekNum = Number(period.weekNumber || period.header?.weekNumber) || ((currentPlan.weekNumber || 1) + pIdx);
                   const weekDateObj = getWeekDateRange(schoolConfig.startDateWeek1 || '2024-09-09', pWeekNum);

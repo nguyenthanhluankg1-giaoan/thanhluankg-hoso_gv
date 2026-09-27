@@ -12,6 +12,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { UserAccount } from '../types';
+import { getAccountExpirationInfo } from '../utils/helpers';
 
 interface LoginScreenProps {
   onLogin: (user: UserAccount) => void;
@@ -67,6 +68,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       if (found.status === 'locked') {
         setError('Tài khoản này đã bị khóa bởi Quản trị viên. Vui lòng liên hệ ban giám hiệu.');
+        setLoading(false);
+        return;
+      }
+
+      // Check active days expiration for teacher accounts
+      const expInfo = getAccountExpirationInfo(found);
+      if (found.role !== 'admin' && expInfo.isExpired) {
+        setError(`Tài khoản đã HẾT HẠN SỬ DỤNG (Hết hạn từ ngày ${expInfo.formattedExpiresAt}). Vui lòng liên hệ Quản trị viên để đăng ký gia hạn thêm số ngày hoạt động!`);
         setLoading(false);
         return;
       }

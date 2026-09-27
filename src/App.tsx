@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Folder } from 'lucide-react';
+import { Folder, ShieldAlert, AlertCircle, RefreshCw, LogOut } from 'lucide-react';
 import { AppState, UserAccount } from './types';
 import {
   loadStoredState,
   saveStoredState,
   getDefaultState,
-  getDefaultStateForUser
+  getDefaultStateForUser,
+  getAccountExpirationInfo
 } from './utils/helpers';
 import {
   fetchUsersFromFirestore,
@@ -327,9 +328,80 @@ export default function App() {
   };
 
   const pageInfo = getPageInfo();
+  const currentUserExpInfo = getAccountExpirationInfo(currentUser);
+  const isCurrentUserExpired = currentUser?.role !== 'admin' && currentUserExpInfo.isExpired;
 
   return (
     <div className="min-h-screen min-h-[100dvh] w-full overflow-x-hidden bg-gradient-to-br from-teal-50/70 via-emerald-50/40 to-teal-100/30 text-slate-800 flex flex-col lg:flex-row relative">
+      {/* EXPIRED ACCOUNT LOCK OVERLAY */}
+      {isCurrentUserExpired && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border-4 border-rose-300 w-full max-w-lg p-6 sm:p-8 text-center space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-20 h-20 rounded-full bg-rose-100 border-4 border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
+              <ShieldAlert className="w-10 h-10" />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-extrabold text-xs uppercase tracking-wider">
+                Hết Quyền Sử Dụng Tính Năng
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2">
+                Tài Khoản Đã Hết Thời Hạn Hoạt Động
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                Xin chào Thầy/Cô <strong className="text-slate-800">{currentUser?.name}</strong> (@{currentUser?.username})
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 text-left text-xs sm:text-sm text-rose-950 font-medium space-y-2">
+              <div className="flex items-center gap-2 font-bold text-rose-900">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>Thông báo khóa quyền truy cập:</span>
+              </div>
+              <p>
+                Số ngày hoạt động được Quản trị viên cấp phép cho tài khoản của Thầy/Cô đã hết hạn vào ngày{' '}
+                <strong className="font-extrabold underline">{currentUserExpInfo.formattedExpiresAt}</strong>.
+              </p>
+              <p>
+                Tất cả các tính năng giảng dạy, lồng cầu, điểm danh và KHDH đã tự động tạm khóa.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-200 text-left text-xs text-teal-900 font-medium">
+              <strong className="font-bold text-teal-950 block mb-0.5">📞 Hướng dẫn đăng ký gia hạn:</strong>
+              Vui lòng liên hệ với Ban Giám Hiệu hoặc Quản trị viên hệ thống để được đăng ký gia hạn thêm số ngày hoạt động. Khi Admin gia hạn xong, Thầy/Cô nhấn nút "Kiểm tra lại trạng thái" dưới đây để tiếp tục sử dụng.
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const list = await fetchUsersFromFirestore();
+                  setUsers(list);
+                  const fresh = list.find((u) => u.id === currentUser?.id);
+                  if (fresh) {
+                    setCurrentUser(fresh);
+                    saveSessionUser(fresh);
+                  }
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Kiểm Tra Lại Trạng Thái</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Đăng Xuất</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar navigation */}
       <Sidebar
         currentPage={state.currentPage}
