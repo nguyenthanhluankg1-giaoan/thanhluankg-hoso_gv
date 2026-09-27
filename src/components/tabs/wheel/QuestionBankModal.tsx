@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Plus,
   Trash2,
@@ -17,11 +17,15 @@ import {
   Tag,
   CheckSquare,
   Square,
-  MoveRight
+  MoveRight,
+  UploadCloud,
+  FileText,
+  Loader2
 } from 'lucide-react';
-import { QuizQuestion, QuestionFolder, DEFAULT_SUBJECTS } from '../../../types';
+import { QuizQuestion, QuestionFolder, DEFAULT_SUBJECTS, UploadedFileInfo } from '../../../types';
 import { DEFAULT_QUIZ_QUESTIONS } from '../../../data/defaultQuestions';
-import { DEFAULT_QUESTION_FOLDERS, uid } from '../../../utils/helpers';
+import { DEFAULT_QUESTION_FOLDERS, uid, readFileAsDataURL } from '../../../utils/helpers';
+import { analyzeLessonFileWithGemini, generateQuizWithGemini } from '../../../services/geminiService';
 
 interface QuestionBankModalProps {
   isOpen: boolean;
@@ -67,6 +71,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [folderName, setFolderName] = useState('');
   const [folderDesc, setFolderDesc] = useState('');
   const [folderColor, setFolderColor] = useState('#0284c7');
+  const [folderSubject, setFolderSubject] = useState<string>('all');
 
   // New question form state
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -77,6 +82,145 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [formFolderId, setFormFolderId] = useState<string>('');
   const [formRewardCoins, setFormRewardCoins] = useState<number>(2);
   const [formExplanation, setFormExplanation] = useState<string>('');
+
+  // AI Quiz Generator State
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiSubject, setAiSubject] = useState('Tin học');
+  const [aiFolderId, setAiFolderId] = useState('');
+  const [aiNumQuestions, setAiNumQuestions] = useState(5);
+  const [aiUploadedFiles, setAiUploadedFiles] = useState<UploadedFileInfo[]>([]);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenAiGenerator = () => {
+    const sub = selectedSubject !== 'all' ? selectedSubject : 'Tin học';
+    const folderObj = currentFolders.find((f) => f.id === selectedFolder);
+    const targetFolder = selectedFolder !== 'all' && selectedFolder !== 'uncategorized' ? selectedFolder : '';
+
+    setAiTopic('');
+    setAiSubject(folderObj?.subject || sub);
+    setAiFolderId(targetFolder);
+    setAiNumQuestions(5);
+    setAiUploadedFiles([]);
+    setIsAiModalOpen(true);
+  };
+
+  const handleAiFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newUploaded: UploadedFileInfo[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (f.size > 100 * 1024 * 1024) {
+        alert(`Tệp "${f.name}" vượt quá 100MB!`);
+        continue;
+      }
+
+      try {
+        const base64 = await readFileAsDataURL(f);
+        newUploaded.push({
+          id: uid('file'),
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          base64
+        });
+      } catch (err) {
+        console.error('Error reading file:', err);
+      }
+    }
+
+    if (newUploaded.length > 0) {
+      const combined = [...aiUploadedFiles, ...newUploaded];
+      setAiUploadedFiles(combined);
+
+      if (!aiTopic.trim()) {
+        setIsAiAnalyzing(true);
+        try {
+          const analysis = await analyzeLessonFileWithGemini(combined);
+          if (analysis && analysis.topic) {
+            setAiTopic(analysis.topic);
+            if (analysis.subject) setAiSubject(analysis.subject);
+          }
+        } catch (err) {
+          console.warn('Auto analyze file error:', err);
+        } finally {
+          setIsAiAnalyzing(false);
+        }
+      }
+    }
+
+    if (aiFileInputRef.current) aiFileInputRef.current.value = '';
+  };
+
+  const handleGenerateAiQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiTopic.trim() && aiUploadedFiles.length === 0) {
+      alert('Vui lòng nhập tên bài dạy hoặc tải lên tệp PDF / Ảnh trang sách!');
+      return;
+    }
+
+    setIsAiGenerating(true);
+    try {
+      let generatedQuestions: QuizQuestion[] | null = null;
+
+      try {
+        const response = await fetch('/api/generate-quiz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: aiTopic.trim() || 'Bài học trắc nghiệm',
+            subject: aiSubject,
+            numQuestions: aiNumQuestions,
+            folderId: aiFolderId || undefined,
+            attachedFiles: aiUploadedFiles
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.questions) && data.questions.length > 0) {
+            generatedQuestions = data.questions;
+          }
+        }
+      } catch (err) {
+        console.warn('Server route failed, fallback to client Gemini:', err);
+      }
+
+      if (!generatedQuestions || generatedQuestions.length === 0) {
+        generatedQuestions = await generateQuizWithGemini({
+          topic: aiTopic.trim() || 'Bài học trắc nghiệm',
+          subject: aiSubject,
+          numQuestions: aiNumQuestions,
+          folderId: aiFolderId || undefined,
+          attachedFiles: aiUploadedFiles
+        });
+      }
+
+      if (generatedQuestions && generatedQuestions.length > 0) {
+        onSaveQuestions([...generatedQuestions, ...questions]);
+        if (aiFolderId) {
+          setSelectedFolder(aiFolderId);
+        }
+        if (aiSubject) {
+          setSelectedSubject(aiSubject);
+        }
+        setIsAiModalOpen(false);
+        alert(`🎉 AI đã tự động biên soạn thành công ${generatedQuestions.length} câu hỏi trắc nghiệm và lưu vào thư mục!`);
+      } else {
+        alert('Không thể tạo câu hỏi từ dữ liệu đã chọn. Vui lòng kiểm tra lại API Key hoặc tệp đính kèm!');
+      }
+    } catch (err) {
+      console.error('Error generating AI quiz:', err);
+      alert('Có lỗi xảy ra khi tạo câu hỏi với AI. Vui lòng thử lại!');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -131,7 +275,13 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setFormQuestion('');
     setFormOptions(['', '', '', '']);
     setFormCorrectIndex(0);
-    setFormSubject('Toán');
+
+    const activeFolderObj = currentFolders.find((f) => f.id === selectedFolder);
+    const defaultSub = (activeFolderObj && activeFolderObj.subject && activeFolderObj.subject !== 'all')
+      ? activeFolderObj.subject
+      : (selectedSubject !== 'all' ? selectedSubject : 'Tin học');
+
+    setFormSubject(defaultSub);
     setFormFolderId(selectedFolder !== 'all' && selectedFolder !== 'uncategorized' ? selectedFolder : '');
     setFormRewardCoins(2);
     setFormExplanation('');
@@ -224,6 +374,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setFolderName('');
     setFolderDesc('');
     setFolderColor('#0284c7');
+    setFolderSubject(selectedSubject !== 'all' ? selectedSubject : 'all');
     setIsFolderModalOpen(true);
   };
 
@@ -233,6 +384,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setFolderName(f.name);
     setFolderDesc(f.description || '');
     setFolderColor(f.color || '#0284c7');
+    setFolderSubject(f.subject || 'all');
     setIsFolderModalOpen(true);
   };
 
@@ -243,10 +395,18 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       return;
     }
 
+    const assignedSubject = folderSubject && folderSubject !== 'all' ? folderSubject : undefined;
+
     if (editingFolderId) {
       const updatedFolders = currentFolders.map((f) =>
         f.id === editingFolderId
-          ? { ...f, name: folderName.trim(), description: folderDesc.trim(), color: folderColor }
+          ? {
+              ...f,
+              name: folderName.trim(),
+              description: folderDesc.trim(),
+              color: folderColor,
+              subject: assignedSubject
+            }
           : f
       );
       onSaveFolders(updatedFolders);
@@ -256,9 +416,14 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         name: folderName.trim(),
         description: folderDesc.trim(),
         color: folderColor,
+        subject: assignedSubject,
         createdAt: new Date().toISOString()
       };
       onSaveFolders([...currentFolders, newFolder]);
+      setSelectedFolder(newFolder.id);
+      if (assignedSubject) {
+        setSelectedSubject(assignedSubject);
+      }
     }
 
     setIsFolderModalOpen(false);
@@ -346,6 +511,17 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={handleOpenAiGenerator}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs shadow-md shadow-teal-700/20 transition-all cursor-pointer"
+              title="Soạn tự động câu hỏi trắc nghiệm từ tệp PDF hoặc Hình ảnh trang sách"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 stroke-[2.5]" />
+              <span>AI Soạn từ PDF/Ảnh</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleOpenNewFolder}
               className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs transition-all cursor-pointer shadow-2xs"
               title="Tạo thư mục mới để gom nhóm câu hỏi"
@@ -356,14 +532,15 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
             {!isAddingNew && (
               <button
+                type="button"
                 onClick={() => {
                   resetForm();
                   setIsAddingNew(true);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs shadow-md shadow-teal-700/20 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Thêm câu hỏi</span>
+                <span className="hidden sm:inline">Thủ công</span>
               </button>
             )}
             <button
@@ -379,18 +556,27 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         <div className="overflow-y-auto flex-1 py-3.5 space-y-4 pr-1">
           {/* FOLDERS NAVIGATION BAR */}
           <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                <FolderOpen className="w-4 h-4 text-amber-500" />
-                <span>Thư mục lưu trữ câu hỏi ({currentFolders.length}):</span>
-              </span>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <FolderOpen className="w-4 h-4 text-amber-500" />
+                  <span>
+                    Thư mục câu hỏi {selectedSubject !== 'all' ? `môn ${selectedSubject}` : '(Tất cả môn)'}:
+                  </span>
+                </span>
+                <span className="text-[10px] font-bold text-teal-800 bg-teal-100/80 px-2 py-0.5 rounded-full border border-teal-200">
+                  {currentFolders.filter((f) => selectedSubject === 'all' || !f.subject || f.subject === 'all' || f.subject === selectedSubject).length} thư mục
+                </span>
+              </div>
+
               <button
                 type="button"
                 onClick={handleOpenNewFolder}
-                className="text-[11px] font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-xs transition-all cursor-pointer"
+                title={selectedSubject !== 'all' ? `Tạo thư mục mới cho môn ${selectedSubject}` : 'Tạo thư mục mới'}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Tạo thư mục</span>
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>+ Tạo thư mục {selectedSubject !== 'all' ? `môn ${selectedSubject}` : ''}</span>
               </button>
             </div>
 
@@ -414,7 +600,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       : 'bg-slate-100 text-slate-600'
                   }`}
                 >
-                  {questions.length}
+                  {filteredQuestions.length}
                 </span>
               </button>
 
@@ -437,72 +623,93 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {questions.filter((q) => !q.folderId).length}
+                  {questions.filter((q) => !q.folderId && (selectedSubject === 'all' || q.subject === selectedSubject)).length}
                 </span>
               </button>
 
-              {/* Custom Folders */}
-              {currentFolders.map((f) => {
-                const count = questions.filter((q) => q.folderId === f.id).length;
-                const isSelected = selectedFolder === f.id;
-                const colorHex = f.color || '#0284c7';
+              {/* Custom Folders matching selected subject */}
+              {currentFolders
+                .filter((f) => {
+                  if (selectedSubject === 'all') return true;
+                  if (f.subject === selectedSubject) return true;
+                  if (!f.subject || f.subject === 'all') return true;
+                  return questions.some((q) => q.folderId === f.id && q.subject === selectedSubject);
+                })
+                .map((f) => {
+                  const count = questions.filter(
+                    (q) => q.folderId === f.id && (selectedSubject === 'all' || q.subject === selectedSubject)
+                  ).length;
+                  const isSelected = selectedFolder === f.id;
+                  const colorHex = f.color || '#0284c7';
 
-                return (
-                  <div
-                    key={f.id}
-                    onClick={() => setSelectedFolder(f.id)}
-                    className={`group relative px-3 py-1.5 rounded-xl text-xs font-extrabold border flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                      isSelected
-                        ? 'text-white shadow-xs border-transparent'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                    }`}
-                    style={{
-                      backgroundColor: isSelected ? colorHex : undefined
-                    }}
-                  >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/40"
-                      style={{ backgroundColor: isSelected ? '#ffffff' : colorHex }}
-                    />
-                    <span>{f.name}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                        isSelected ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-600'
+                  return (
+                    <div
+                      key={f.id}
+                      onClick={() => {
+                        setSelectedFolder(f.id);
+                        if (f.subject && f.subject !== 'all' && selectedSubject === 'all') {
+                          setSelectedSubject(f.subject);
+                        }
+                      }}
+                      className={`group relative px-3 py-1.5 rounded-xl text-xs font-extrabold border flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                        isSelected
+                          ? 'text-white shadow-xs border-transparent'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                       }`}
+                      style={{
+                        backgroundColor: isSelected ? colorHex : undefined
+                      }}
                     >
-                      {count}
-                    </span>
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/40"
+                        style={{ backgroundColor: isSelected ? '#ffffff' : colorHex }}
+                      />
+                      <span>{f.name}</span>
+                      {f.subject && f.subject !== 'all' && selectedSubject === 'all' && (
+                        <span className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800'
+                        }`}>
+                          {f.subject}
+                        </span>
+                      )}
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                          isSelected ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {count}
+                      </span>
 
-                    {/* Quick folder action buttons */}
-                    <div className="flex items-center gap-1 ml-1 opacity-80 group-hover:opacity-100">
-                      <button
-                        type="button"
-                        onClick={(e) => handleOpenEditFolder(f, e)}
-                        className={`p-1 rounded-md transition-all ${
-                          isSelected
-                            ? 'hover:bg-white/20 text-white'
-                            : 'hover:bg-slate-100 text-slate-500'
-                        }`}
-                        title="Chỉnh sửa tên/màu thư mục"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteFolder(f.id, e)}
-                        className={`p-1 rounded-md transition-all ${
-                          isSelected
-                            ? 'hover:bg-rose-500/30 text-rose-100'
-                            : 'hover:bg-rose-50 text-rose-500'
-                        }`}
-                        title="Xóa thư mục"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      {/* Quick folder action buttons */}
+                      <div className="flex items-center gap-1 ml-1 opacity-80 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditFolder(f, e)}
+                          className={`p-1 rounded-md transition-all ${
+                            isSelected
+                              ? 'hover:bg-white/20 text-white'
+                              : 'hover:bg-slate-100 text-slate-500'
+                          }`}
+                          title="Chỉnh sửa tên/màu/môn thư mục"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteFolder(f.id, e)}
+                          className={`p-1 rounded-md transition-all ${
+                            isSelected
+                              ? 'hover:bg-rose-500/30 text-rose-100'
+                              : 'hover:bg-rose-50 text-rose-500'
+                          }`}
+                          title="Xóa thư mục"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
 
@@ -1008,6 +1215,31 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
               <div>
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Gắn trực tiếp vào Môn học:
+                </label>
+                <select
+                  value={folderSubject}
+                  onChange={(e) => setFolderSubject(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-teal-300 bg-teal-50/50 text-xs font-extrabold text-teal-950 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  <option value="all">🌟 Dùng chung cho tất cả các môn</option>
+                  {subjectsList
+                    .filter((s) => s !== 'all')
+                    .map((s) => (
+                      <option key={s} value={s}>
+                        📚 Môn {s}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[10px] text-teal-700 font-semibold mt-1">
+                  {folderSubject && folderSubject !== 'all'
+                    ? `Thư mục sẽ nằm trực tiếp trong môn "${folderSubject}". Khi bấm chọn môn "${folderSubject}", thư mục này sẽ hiển thị ngay.`
+                    : 'Thư mục dùng chung sẽ hiển thị ở mọi môn học.'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
                   Mô tả ngắn (tùy chọn):
                 </label>
                 <input
@@ -1055,6 +1287,230 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                   className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md shadow-amber-500/20 cursor-pointer"
                 >
                   {editingFolderId ? 'Lưu thay đổi' : 'Tạo thư mục'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI QUIZ GENERATOR MODAL */}
+      {isAiModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-xs animate-in zoom-in-95 duration-150 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border-2 border-teal-300 my-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-600 to-emerald-600 text-white flex items-center justify-center shadow-md">
+                  <Sparkles className="w-5 h-5 text-amber-300 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h4 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
+                    <span>AI Soạn Trắc Nghiệm Tự Động</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-teal-950">
+                      Tự động 100%
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Tải ảnh/PDF trang sách hoặc nhập tên bài dạy để AI tạo câu hỏi vào thư mục
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(false)}
+                disabled={isAiGenerating}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleGenerateAiQuiz} className="space-y-4 mt-4">
+              {/* 1. File Upload Area */}
+              <div className="p-3.5 rounded-2xl bg-teal-50/60 border border-teal-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-teal-950 flex items-center gap-1.5">
+                    <UploadCloud className="w-4 h-4 text-teal-600" />
+                    <span>Tải lên trang sách / tài liệu (PDF / Hình ảnh):</span>
+                  </label>
+                  <span className="text-[10px] font-extrabold text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200">
+                    Nhiều ảnh & PDF
+                  </span>
+                </div>
+
+                <input
+                  ref={aiFileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,application/pdf"
+                  onChange={handleAiFileChange}
+                  className="hidden"
+                  id="ai-quiz-file-upload"
+                />
+
+                <label
+                  htmlFor="ai-quiz-file-upload"
+                  className="block p-3.5 border-2 border-dashed border-teal-300 hover:border-teal-500 bg-white rounded-2xl text-center cursor-pointer transition-colors shadow-2xs"
+                >
+                  <UploadCloud className="w-7 h-7 text-teal-600 mx-auto mb-1" />
+                  <p className="text-xs font-bold text-slate-800">
+                    Bấm để chọn <span className="text-teal-700 font-black">Nhiều ảnh trang sách</span> hoặc <span className="text-teal-700 font-black">Tệp PDF</span>
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    AI sẽ phân tích đề bài & nội dung trang sách đính kèm để biên soạn
+                  </p>
+                </label>
+
+                {/* Uploaded File List */}
+                {aiUploadedFiles.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-teal-900">
+                      <span>Đã đính kèm {aiUploadedFiles.length} tệp:</span>
+                      {isAiAnalyzing && (
+                        <span className="flex items-center gap-1 text-amber-600 animate-pulse">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Đang tự nhận diện tên bài...</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                      {aiUploadedFiles.map((f, fIdx) => (
+                        <div
+                          key={f.id}
+                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-teal-200 text-xs font-semibold"
+                        >
+                          <div className="flex items-center gap-2 truncate pr-2">
+                            <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                            <span className="truncate text-slate-800 font-bold">{f.name}</span>
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              ({(f.size / (1024 * 1024)).toFixed(1)}MB)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAiUploadedFiles((prev) => prev.filter((_, idx) => idx !== fIdx))
+                            }
+                            className="text-rose-500 hover:text-rose-700 font-bold px-1.5 py-0.5 rounded-lg hover:bg-rose-50 cursor-pointer"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Topic / Lesson Title Input */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                  Tên bài dạy / Chủ đề câu hỏi: <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  placeholder="Ví dụ: Bài 1. Thông tin và xử lý thông tin, Kiểm tra giữa kỳ 1..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 3. Subject & Folder Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Subject */}
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                    Môn học:
+                  </label>
+                  <select
+                    value={aiSubject}
+                    onChange={(e) => setAiSubject(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
+                  >
+                    {subjectsList
+                      .filter((s) => s !== 'all')
+                      .map((s) => (
+                        <option key={s} value={s}>
+                          📚 Môn {s}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {/* Target Folder */}
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                    Lưu vào thư mục:
+                  </label>
+                  <select
+                    value={aiFolderId}
+                    onChange={(e) => setAiFolderId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
+                  >
+                    <option value="">-- Chưa xếp thư mục (Chung) --</option>
+                    {currentFolders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        📁 {f.name} {f.subject && f.subject !== 'all' ? `(${f.subject})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 4. Number of Questions */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-800 mb-1.5">
+                  Số lượng câu hỏi trắc nghiệm muốn AI tạo:
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[5, 10, 15, 20].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setAiNumQuestions(num)}
+                      className={`py-2 rounded-xl font-black text-xs border transition-all cursor-pointer ${
+                        aiNumQuestions === num
+                          ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {num} câu
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(false)}
+                  disabled={isAiGenerating}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAiGenerating}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs shadow-md shadow-teal-700/20 cursor-pointer disabled:opacity-50 transition-all"
+                >
+                  {isAiGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-300" />
+                      <span>Đang phân tích tệp & tạo câu hỏi...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-amber-300 stroke-[2.5]" />
+                      <span>⚡ BẮT ĐẦU TẠO {aiNumQuestions} CÂU HỎI AI</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

@@ -139,6 +139,7 @@ export interface QuestionFolder {
   description?: string;
   color?: string; // HEX color or tailwind color code
   createdAt?: string;
+  subject?: string; // Môn học áp dụng (Tin học, Công nghệ, Toán...)
 }
 
 export interface QuizQuestion {

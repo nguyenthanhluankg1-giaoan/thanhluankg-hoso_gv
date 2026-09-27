@@ -351,3 +351,100 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdow
   }
   return null;
 }
+
+/**
+ * Tự động tạo câu hỏi trắc nghiệm từ tên bài dạy và tệp đính kèm (Ảnh/PDF) bằng Gemini AI
+ */
+export async function generateQuizWithGemini(params: {
+  topic: string;
+  subject: string;
+  grade?: string;
+  numQuestions: number;
+  folderId?: string;
+  attachedFiles?: UploadedFileInfo[];
+  apiKey?: string;
+}): Promise<import('../types').QuizQuestion[] | null> {
+  const apiKeyToUse = params.apiKey || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+  if (!apiKeyToUse.trim()) return null;
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey: apiKeyToUse.trim(),
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+
+    const parts: any[] = [];
+
+    if (params.attachedFiles && params.attachedFiles.length > 0) {
+      for (const f of params.attachedFiles) {
+        if (f.base64) {
+          const cleanBase64 = f.base64.replace(/^data:[^;]+;base64,/, '');
+          const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+          parts.push({
+            inlineData: {
+              data: cleanBase64,
+              mimeType: f.type || (isPdf ? 'application/pdf' : 'image/jpeg')
+            }
+          });
+        }
+      }
+    }
+
+    const promptText = `Hãy là một chuyên gia giáo dục xuất sắc. Dựa vào nội dung bài học "${params.topic}" (Môn ${params.subject}) và tài liệu/trang sách đính kèm (nếu có), hãy biên soạn đúng ĐỦ ${params.numQuestions} CÂU HỎI TRẮC NGHIỆM hay, chuẩn kiến thức sư phạm.
+
+Yêu cầu mỗi câu hỏi:
+- Nội dung câu hỏi rõ ràng, bám sát bài dạy "${params.topic}".
+- 4 phương án trả lời A, B, C, D (ngắn gọn, chính xác, chỉ có 1 phương án đúng).
+- "correctIndex": Chỉ số phương án đúng (0 cho A, 1 cho B, 2 cho C, 3 cho D).
+- "rewardCoins": Số hoa thưởng (từ 1 đến 3 hoa, ví dụ 2).
+- "explanation": Giải thích ngắn gọn đáp án đúng hoặc mẹo ghi nhớ.
+
+Trả về DUY NHẤT một mảng JSON hợp lệ các câu hỏi trắc nghiệm (không kèm markdown code fence) theo cấu trúc:
+[
+  {
+    "question": "Nội dung câu hỏi...",
+    "options": ["Phương án A", "Phương án B", "Phương án C", "Phương án D"],
+    "correctIndex": 0,
+    "rewardCoins": 2,
+    "explanation": "Lời giải thích đáp án..."
+  }
+]`;
+
+    parts.push({ text: promptText });
+
+    for (const modelName of ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: [{ role: 'user', parts }],
+          config: {
+            responseMimeType: 'application/json'
+          }
+        });
+
+        if (response.text) {
+          const parsed = safeParseJSON(response.text);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((item: any, idx: number) => ({
+              id: `quiz-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+              question: String(item.question || '').trim(),
+              options: Array.isArray(item.options) && item.options.length >= 4
+                ? item.options.slice(0, 4).map((o: any) => String(o).trim())
+                : ['Đúng', 'Sai', 'Không xác định', 'Cả A và B'],
+              correctIndex: typeof item.correctIndex === 'number' && item.correctIndex >= 0 && item.correctIndex < 4 ? item.correctIndex : 0,
+              subject: params.subject,
+              folderId: params.folderId || undefined,
+              rewardCoins: typeof item.rewardCoins === 'number' ? item.rewardCoins : 2,
+              explanation: String(item.explanation || '').trim()
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn(`Model ${modelName} generate quiz failed:`, err);
+      }
+    }
+  } catch (err) {
+    console.error('Generate quiz with gemini error:', err);
+  }
+  return null;
+}

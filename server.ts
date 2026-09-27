@@ -1511,6 +1511,102 @@ Trả về duy nhất 1 JSON object hợp lệ (không có markdown code fence):
   }
 });
 
+// API ROUTE: Tự động soạn câu hỏi trắc nghiệm từ PDF/Ảnh bằng AI
+app.post('/api/generate-quiz', async (req, res) => {
+  try {
+    const { topic, subject, numQuestions, folderId, attachedFiles, customApiKey } = req.body;
+    const apiKeyToUse = customApiKey || process.env.GEMINI_API_KEY;
+
+    if (!apiKeyToUse) {
+      return res.status(400).json({ error: 'Chưa cài đặt Gemini API Key' });
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey: apiKeyToUse,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+
+    const parts: any[] = [];
+    if (Array.isArray(attachedFiles) && attachedFiles.length > 0) {
+      for (const f of attachedFiles) {
+        const rawData = f.base64 || f.base64Data || f.data;
+        if (rawData) {
+          const cleanBase64 = rawData.replace(/^data:[^;]+;base64,/, '');
+          const isPdf = f.type === 'application/pdf' || (f.name && f.name.toLowerCase().endsWith('.pdf'));
+          parts.push({
+            inlineData: {
+              data: cleanBase64,
+              mimeType: f.type || (isPdf ? 'application/pdf' : 'image/jpeg')
+            }
+          });
+        }
+      }
+    }
+
+    const requestedNum = Math.max(1, Math.min(30, Number(numQuestions) || 5));
+    const promptText = `Hãy là một chuyên gia giáo dục xuất sắc. Dựa vào nội dung bài học "${topic || 'Bài học trắc nghiệm'}" (Môn ${subject || 'Tổng hợp'}) và tài liệu/trang sách đính kèm (nếu có), hãy biên soạn đúng ĐỦ ${requestedNum} CÂU HỎI TRẮC NGHIỆM hay, chuẩn kiến thức sư phạm.
+
+Yêu cầu mỗi câu hỏi:
+- Nội dung câu hỏi rõ ràng, bám sát bài dạy "${topic || 'Bài học'}".
+- 4 phương án trả lời A, B, C, D (ngắn gọn, chính xác, chỉ có 1 phương án đúng).
+- "correctIndex": Chỉ số phương án đúng (0 cho A, 1 cho B, 2 cho C, 3 cho D).
+- "rewardCoins": Số hoa thưởng (từ 1 đến 3 hoa, ví dụ 2).
+- "explanation": Giải thích ngắn gọn đáp án đúng hoặc mẹo ghi nhớ.
+
+Trả về DUY NHẤT một mảng JSON hợp lệ các câu hỏi trắc nghiệm (không kèm markdown code fence) theo cấu trúc:
+[
+  {
+    "question": "Nội dung câu hỏi...",
+    "options": ["Phương án A", "Phương án B", "Phương án C", "Phương án D"],
+    "correctIndex": 0,
+    "rewardCoins": 2,
+    "explanation": "Lời giải thích đáp án..."
+  }
+]`;
+
+    parts.push({ text: promptText });
+
+    for (const modelName of ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: [{ role: 'user', parts }],
+          config: {
+            responseMimeType: 'application/json'
+          }
+        });
+
+        if (response.text) {
+          const parsed = safeParseJSON(response.text);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const formatted = parsed.map((item: any, idx: number) => ({
+              id: `quiz-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+              question: String(item.question || '').trim(),
+              options: Array.isArray(item.options) && item.options.length >= 4
+                ? item.options.slice(0, 4).map((o: any) => String(o).trim())
+                : ['Đúng', 'Sai', 'Không xác định', 'Cả A và B'],
+              correctIndex: typeof item.correctIndex === 'number' && item.correctIndex >= 0 && item.correctIndex < 4 ? item.correctIndex : 0,
+              subject: subject || 'Tin học',
+              folderId: folderId || undefined,
+              rewardCoins: typeof item.rewardCoins === 'number' ? item.rewardCoins : 2,
+              explanation: String(item.explanation || '').trim()
+            }));
+
+            return res.json({ success: true, questions: formatted });
+          }
+        }
+      } catch (mErr) {
+        console.warn(`Model ${modelName} generate quiz error:`, mErr);
+      }
+    }
+
+    return res.json({ success: false, message: 'Không thể phân tích dữ liệu tệp để tạo câu hỏi.' });
+  } catch (err: any) {
+    console.error('generate-quiz route error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Start Server
 async function startServer() {
   if (process.env.NODE_ENV === 'production') {
