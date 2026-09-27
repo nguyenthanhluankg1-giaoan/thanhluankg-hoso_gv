@@ -84,7 +84,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   setFormData((prev) => ({
                     ...prev,
                     teacherRoleType: 'gvcn',
-                    documentTitle: 'LỊCH BÁO GIẢNG'
+                    documentTitle: 'LỊCH BÁO GIẢNG',
+                    subjectTitle: ''
                   }));
                 }}
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
@@ -179,7 +180,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <FileText className="w-4 h-4 text-teal-600" />
               <span>Tiêu đề văn bản & Năm học</span>
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`grid grid-cols-1 ${formData.teacherRoleType === 'gvcn' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3`}>
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
                   Tiêu đề văn bản
@@ -192,18 +193,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   required
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">
-                  Tên môn học giảng dạy
-                </label>
-                <input
-                  type="text"
-                  value={formData.subjectTitle}
-                  onChange={(e) => handleChange('subjectTitle', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-teal-500"
-                  required
-                />
-              </div>
+
+              {formData.teacherRoleType !== 'gvcn' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Tên môn học giảng dạy
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.subjectTitle}
+                    onChange={(e) => handleChange('subjectTitle', e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-teal-500"
+                    required
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
                   Năm học

@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Settings, User, Save, BookOpen, Edit3, Plus } from 'lucide-react';
-import { AppState, TeacherProfile } from '../../types';
+import { AppState, TeacherProfile, UserAccount } from '../../types';
 import { Avatar } from '../Avatar';
 import { readFileAsDataURL } from '../../utils/helpers';
 
 interface SettingsTabProps {
   state: AppState;
   onUpdateState: (updater: (prev: AppState) => AppState) => void;
+  currentUser?: UserAccount | null;
 }
 
-export const SettingsTab: React.FC<SettingsTabProps> = ({ state, onUpdateState }) => {
+export const SettingsTab: React.FC<SettingsTabProps> = ({ state, onUpdateState, currentUser }) => {
   const [teacherName, setTeacherName] = useState(state.teacher.name);
   const [teacherRole, setTeacherRole] = useState(state.teacher.role);
   const [teacherSubject, setTeacherSubject] = useState(state.teacher.subject);
@@ -135,17 +136,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ state, onUpdateState }
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Môn học phụ trách
-                </label>
-                <input
-                  type="text"
-                  value={teacherSubject}
-                  onChange={(e) => setTeacherSubject(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border-2 border-slate-200 focus:border-teal-500 focus:outline-none text-sm font-semibold"
-                />
-              </div>
+              {currentUser?.teacherType !== 'GVCN' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Môn học phụ trách
+                  </label>
+                  <input
+                    type="text"
+                    value={teacherSubject}
+                    onChange={(e) => setTeacherSubject(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl border-2 border-slate-200 focus:border-teal-500 focus:outline-none text-sm font-semibold"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

@@ -188,10 +188,15 @@ export const Topbar: React.FC<TopbarProps> = ({
                   <ShieldCheck className="w-3 h-3 text-purple-600 inline" />
                   <span className="text-purple-700">Quản trị viên</span>
                 </>
+              ) : currentUser?.teacherType === 'GVCN' ? (
+                <>
+                  <UserCheck className="w-3 h-3 text-teal-600 inline" />
+                  <span>Giáo viên chủ nhiệm</span>
+                </>
               ) : (
                 <>
                   <UserCheck className="w-3 h-3 text-teal-600 inline" />
-                  <span>{currentUser?.subject || teacher.role}</span>
+                  <span>{currentUser?.subject || teacher.role || 'Giáo viên bộ môn'}</span>
                 </>
               )}
             </span>

@@ -495,9 +495,7 @@ export async function exportLessonPlanToDocx(
     })
   ];
 
-  const showSubTitle = isGvcn
-    ? Boolean(config.subjectTitle && config.subjectTitle !== 'DÀNH CHO GIÁO VIÊN CHỦ NHIỆM' && config.subjectTitle !== 'MÔN: TIN HỌC - CÔNG NGHỆ')
-    : true;
+  const showSubTitle = isGvcn ? false : true;
 
   if (showSubTitle) {
     docChildren.push(

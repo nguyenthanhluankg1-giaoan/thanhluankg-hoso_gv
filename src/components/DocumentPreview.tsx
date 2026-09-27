@@ -643,15 +643,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
               ? `LỊCH BÁO GIẢNG LỚP ${homeClassName.toUpperCase()}`
               : (config.documentTitle || 'KẾ HOẠCH DẠY HỌC')}
           </h2>
-          {teacherType === 'GVCN' ? (
-            config.subjectTitle &&
-            config.subjectTitle !== 'DÀNH CHO GIÁO VIÊN CHỦ NHIỆM' &&
-            config.subjectTitle !== 'MÔN: TIN HỌC - CÔNG NGHỆ' ? (
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-tight">
-                {config.subjectTitle}
-              </h3>
-            ) : null
-          ) : (
+          {teacherType !== 'GVCN' && (
             <h3 className="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-tight">
               {config.subjectTitle || 'MÔN: TIN HỌC - CÔNG NGHỆ'}
             </h3>

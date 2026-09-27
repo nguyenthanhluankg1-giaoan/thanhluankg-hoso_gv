@@ -180,7 +180,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({ state, onNavigate, onUpdateSta
                       {teacher.username}
                     </td>
                     <td className="py-3 px-4 text-slate-600 font-medium">
-                      {teacher.subject || 'Đang cập nhật'}
+                      {teacher.teacherType === 'GVCN'
+                        ? 'GVCN (Chủ nhiệm)'
+                        : teacher.subject || 'Đang cập nhật'}
                     </td>
                     <td className="py-3 px-4 text-slate-600 text-xs">
                       {teacher.school || 'TH Thạnh Yên 1'}

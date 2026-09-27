@@ -563,6 +563,7 @@ export default function App() {
             <SettingsTab
               state={state}
               onUpdateState={handleUpdateState}
+              currentUser={currentUser}
             />
           )}
 
