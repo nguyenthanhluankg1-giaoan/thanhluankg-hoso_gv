@@ -365,6 +365,14 @@ export interface PeriodPlan {
   postLessonAdjustment?: string; // IV. Điều chỉnh sau bài dạy
 }
 
+export interface UploadedFileInfo {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  base64: string;
+}
+
 export interface DetailedLessonPlan {
   id: string;
   topic: string;

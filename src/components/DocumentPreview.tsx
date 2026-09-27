@@ -450,7 +450,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         weekDates.startDate,
         weekDates.endDate,
         sortedDisplayRows,
-        teacherType
+        (teacherType as 'GVCN' | 'GVBM') || 'GVCN'
       );
       showToast(`Xuất file Word Tuần ${currentWeek} thành công!`);
     } catch (err) {

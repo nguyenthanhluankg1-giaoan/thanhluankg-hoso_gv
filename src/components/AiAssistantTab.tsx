@@ -82,7 +82,7 @@ async function analyzeLessonFileWithClientGemini(
   files: UploadedFileInfo[],
   apiKey: string
 ): Promise<{ topic?: string; subject?: string; grade?: string; bookSeries?: string } | null> {
-  const apiKeyToUse = apiKey || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+  const apiKeyToUse = apiKey || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
   if (!apiKeyToUse.trim() || files.length === 0) return null;
 
   try {
@@ -157,7 +157,7 @@ async function generateLessonPlanWithClientGemini(params: {
   attachedFiles?: UploadedFileInfo[];
   apiKey: string;
 }): Promise<DetailedLessonPlan | null> {
-  const apiKeyToUse = params.apiKey || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+  const apiKeyToUse = params.apiKey || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
   if (!apiKeyToUse.trim()) return null;
 
   try {
@@ -1251,7 +1251,6 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         bookSeries,
         weekNumber,
         timeRange,
-        startDateWeek1: schoolConfig.startDateWeek1,
         ppctPeriodsText,
         ppctList: ppctList.length > 0 ? ppctList : undefined,
         integrationOptions: { nls: enableNls, stem: enableStem, cds: enableCds },
@@ -1278,7 +1277,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       );
       setCurrentPlan(fallback);
       setSelectedPeriodTab(0);
-      if (!customApiKey && !(import.meta.env.VITE_GEMINI_API_KEY as string)) {
+      if (!customApiKey && !((import.meta as any).env?.VITE_GEMINI_API_KEY as string)) {
         setShowApiKeyModal(true);
       }
     } catch (err) {
@@ -1291,7 +1290,6 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         bookSeries,
         weekNumber,
         timeRange,
-        startDateWeek1: schoolConfig.startDateWeek1,
         ppctPeriodsText,
         ppctList: ppctList.length > 0 ? ppctList : undefined,
         integrationOptions: { nls: enableNls, stem: enableStem, cds: enableCds },
@@ -1318,7 +1316,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       );
       setCurrentPlan(fallback);
       setSelectedPeriodTab(0);
-      if (!customApiKey && !(import.meta.env.VITE_GEMINI_API_KEY as string)) {
+      if (!customApiKey && !((import.meta as any).env?.VITE_GEMINI_API_KEY as string)) {
         setShowApiKeyModal(true);
       }
     } finally {

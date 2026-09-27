@@ -89,7 +89,7 @@ export async function analyzeLessonFileWithGemini(
   const apiKeyToUse =
     apiKey ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key') || '' : '') ||
-    (import.meta.env.VITE_GEMINI_API_KEY as string) ||
+    ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) ||
     '';
   if (!apiKeyToUse.trim() || files.length === 0) return null;
 
@@ -170,7 +170,7 @@ export async function generateLessonPlanWithGemini(params: {
   attachedFiles?: UploadedFileInfo[];
   apiKey?: string;
 }): Promise<DetailedLessonPlan | null> {
-  const apiKeyToUse = params.apiKey || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+  const apiKeyToUse = params.apiKey || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
   if (!apiKeyToUse.trim()) return null;
 
   try {
@@ -371,7 +371,7 @@ export async function generateQuizWithGemini(params: {
   const apiKeyToUse =
     params.apiKey ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key') || '' : '') ||
-    (import.meta.env.VITE_GEMINI_API_KEY as string) ||
+    ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) ||
     '';
   if (!apiKeyToUse.trim()) return null;
 
