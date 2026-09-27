@@ -354,14 +354,20 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
     timeRange: string;
   } | null>(null);
 
-  // Custom Gemini API Key State
+  // Custom Gemini API Key State (Scoped per account)
+  const userApiKeyKey = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
     try {
-      return localStorage.getItem('khdh_gemini_api_key') || '';
+      return localStorage.getItem(userApiKeyKey) || '';
     } catch {
       return '';
     }
   });
+
+  useEffect(() => {
+    const keyName = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
+    setCustomApiKey(localStorage.getItem(keyName) || '');
+  }, [currentUser?.id]);
   const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
   const [inputKey, setInputKey] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -552,10 +558,11 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
     const trimmed = keyToSave.trim();
     setCustomApiKey(trimmed);
     try {
+      const keyName = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
       if (trimmed) {
-        localStorage.setItem('khdh_gemini_api_key', trimmed);
+        localStorage.setItem(keyName, trimmed);
       } else {
-        localStorage.removeItem('khdh_gemini_api_key');
+        localStorage.removeItem(keyName);
       }
     } catch (e) {
       console.error('Error saving API key to localStorage:', e);
@@ -568,7 +575,8 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
     setInputKey('');
     setTestStatus(null);
     try {
-      localStorage.removeItem('khdh_gemini_api_key');
+      const keyName = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
+      localStorage.removeItem(keyName);
     } catch (e) {
       console.error('Error clearing API key:', e);
     }

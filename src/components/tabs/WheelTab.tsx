@@ -771,6 +771,7 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
           folders={Array.isArray(state.questionFolders) ? state.questionFolders : DEFAULT_QUESTION_FOLDERS}
           onSaveQuestions={handleSaveQuestions}
           onSaveFolders={handleSaveFolders}
+          ownerUserId={state.ownerUserId}
         />
       )}
     </div>

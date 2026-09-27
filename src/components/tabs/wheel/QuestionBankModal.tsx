@@ -39,6 +39,7 @@ interface QuestionBankModalProps {
   folders: QuestionFolder[];
   onSaveQuestions: (questions: QuizQuestion[]) => void;
   onSaveFolders: (folders: QuestionFolder[]) => void;
+  ownerUserId?: string;
 }
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
@@ -60,7 +61,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   questions,
   folders,
   onSaveQuestions,
-  onSaveFolders
+  onSaveFolders,
+  ownerUserId
 }) => {
   const [search, setSearch] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>('all'); // 'all', 'uncategorized', or folderId
@@ -88,6 +90,11 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [formRewardCoins, setFormRewardCoins] = useState<number>(2);
   const [formExplanation, setFormExplanation] = useState<string>('');
 
+  // Storage key specific to this user account
+  const accountApiKeyStorageKey = ownerUserId
+    ? `gemini_api_key_${ownerUserId}`
+    : 'gemini_api_key_guest';
+
   // AI Quiz Generator State
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
@@ -97,15 +104,26 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [aiUploadedFiles, setAiUploadedFiles] = useState<UploadedFileInfo[]>([]);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
-    return localStorage.getItem('gemini_api_key') || '';
+    return localStorage.getItem(accountApiKeyStorageKey) || '';
   });
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const aiFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Keep API Key in sync when account changes
+  useEffect(() => {
+    const savedKey = localStorage.getItem(accountApiKeyStorageKey) || '';
+    setCustomApiKey(savedKey);
+  }, [accountApiKeyStorageKey, ownerUserId]);
+
   const handleApiKeyChange = (val: string) => {
     setCustomApiKey(val);
-    localStorage.setItem('gemini_api_key', val.trim());
+    if (val.trim()) {
+      localStorage.setItem(accountApiKeyStorageKey, val.trim());
+    } else {
+      localStorage.removeItem(accountApiKeyStorageKey);
+    }
   };
 
   const handleOpenAiGenerator = () => {
@@ -1345,12 +1363,14 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
             {/* Modal Form */}
             <form onSubmit={handleGenerateAiQuiz} className="space-y-4 mt-4">
-              {/* 0. API Key Input Section */}
-              <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 space-y-2">
-                <div className="flex items-center justify-between">
+              {/* 0. API Key Input Section - Account Scoped */}
+              <div className="p-3.5 bg-amber-50/90 rounded-2xl border border-amber-300 space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-1">
                   <label className="text-xs font-black text-amber-950 flex items-center gap-1.5">
                     <Key className="w-4 h-4 text-amber-600" />
-                    <span>Google Gemini API Key (Dán mã cá nhân):</span>
+                    <span>
+                      Google Gemini API Key (Riêng cho tài khoản: <span className="text-teal-800">{ownerUserId || 'Cá nhân'}</span>):
+                    </span>
                   </label>
                   <a
                     href="https://aistudio.google.com/app/apikey"
@@ -1368,7 +1388,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     type={showApiKey ? 'text' : 'password'}
                     value={customApiKey}
                     onChange={(e) => handleApiKeyChange(e.target.value)}
-                    placeholder="Dán mã Google Gemini API Key dạng AIzaSy..."
+                    placeholder={`Dán mã Gemini API Key dành riêng cho tài khoản ${ownerUserId || 'hiện tại'} (AIzaSy...)`}
                     className="w-full pl-3 pr-10 py-2 rounded-xl border border-amber-300 bg-white text-xs font-mono font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-2xs"
                   />
                   <button
@@ -1385,11 +1405,11 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                   {customApiKey.trim() ? (
                     <span className="text-emerald-700 font-extrabold flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Đã gắn API Key cá nhân (Key sẽ tự động được ghi nhớ cho các lần dùng sau).</span>
+                      <span>Mã API Key được bảo mật & lưu riêng cho tài khoản {ownerUserId || 'cá nhân'}. Các tài khoản khác sẽ không thể nhìn thấy.</span>
                     </span>
                   ) : (
                     <span>
-                      Gợi ý: Dán mã Gemini API Key từ <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-teal-700 font-bold underline">Google AI Studio</a> để đảm bảo AI hoạt động 100% không bị quá tải.
+                      Gợi ý: Dán mã Gemini API Key từ <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-teal-700 font-bold underline">Google AI Studio</a>. Key này chỉ được lưu riêng cho duy nhất tài khoản này.
                     </span>
                   )}
                 </p>
