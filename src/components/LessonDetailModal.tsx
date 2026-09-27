@@ -63,7 +63,7 @@ export const LessonDetailModal: React.FC<LessonDetailModalProps> = ({
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5" />
             <h3 className="text-base font-black">
-              Chỉnh sửa tiết dạy ({`Thứ ${formData.dayOfWeek}, Tiết ${formData.period}`})
+              Chỉnh sửa tiết dạy ({`Thứ ${isNaN(formData.dayOfWeek) ? 2 : formData.dayOfWeek}, Tiết ${isNaN(formData.period) ? 1 : formData.period}`})
             </h3>
           </div>
           <button
@@ -101,6 +101,77 @@ export const LessonDetailModal: React.FC<LessonDetailModalProps> = ({
                 required
               />
             </div>
+          </div>
+
+          {/* Sub-subject / Phân môn field for GVCN */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-600">
+                Phân môn (Hiển thị bảng Lịch báo giảng GVCN)
+              </label>
+              <span className="text-[11px] text-teal-700 font-bold">
+                Gợi ý phân môn Tiếng Việt:
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {[
+                'Đọc (Tập đọc)',
+                'Học vần',
+                'Đọc mở rộng',
+                'Luyện từ và câu (LTVC)',
+                'Viết (Tập làm văn)',
+                'Nói và nghe',
+                'Kể chuyện',
+                'Góc sáng tạo',
+                'Ôn tập',
+                'Đánh giá giữa học kì I',
+                'Đánh giá học kì I',
+                'Đánh giá giữa học kì II',
+                'Đánh giá học cuối năm'
+              ].map((sub) => {
+                const isSelected = formData.subSubject === sub;
+                const isEvaluation = sub.startsWith('Đánh giá') || sub === 'Ôn tập';
+                return (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, subSubject: sub })}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-teal-700 text-white border-teal-700 shadow-2xs font-black'
+                        : sub === 'Đọc mở rộng'
+                        ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100 font-extrabold'
+                        : sub === 'Học vần' || sub === 'Kể chuyện'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 font-extrabold'
+                        : isEvaluation
+                        ? 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100 font-extrabold'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {sub === 'Đọc mở rộng'
+                      ? '📖 Đọc mở rộng'
+                      : sub === 'Học vần'
+                      ? '🔤 Học vần'
+                      : sub === 'Kể chuyện'
+                      ? '🗣️ Kể chuyện'
+                      : sub === 'Ôn tập'
+                      ? '📝 Ôn tập'
+                      : sub.startsWith('Đánh giá')
+                      ? `📊 ${sub}`
+                      : sub}
+                  </button>
+                );
+              })}
+            </div>
+
+            <input
+              type="text"
+              value={formData.subSubject || ''}
+              onChange={(e) => setFormData({ ...formData, subSubject: e.target.value })}
+              placeholder="Nhập hoặc chọn phân môn (VD: Đọc mở rộng, Đọc, LTVC...)"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-3">

@@ -1,21 +1,48 @@
-import React, { useState } from 'react';
-import { Settings, Save, RotateCcw, Building, User, Calendar, FileText } from 'lucide-react';
-import { SchoolConfig } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Settings, Save, RotateCcw, Building, User, Calendar, FileText, Key, Eye, EyeOff, Check, Trash2, ShieldCheck, Sparkles } from 'lucide-react';
+import { SchoolConfig, UserAccount } from '../types';
 import { defaultSchoolConfig } from '../data/defaultData';
+import { getStoredApiKey, saveStoredApiKey, clearStoredApiKey } from '../utils/apiKeyStorage';
 
 interface SettingsTabProps {
   config: SchoolConfig;
   onUpdateConfig: (config: SchoolConfig) => void;
   onResetConfig: () => void;
+  currentUser?: UserAccount | null;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   config,
   onUpdateConfig,
-  onResetConfig
+  onResetConfig,
+  currentUser
 }) => {
   const [formData, setFormData] = useState<SchoolConfig>(config);
   const [isSaved, setIsSaved] = useState<boolean>(false);
+
+  // Gemini API Key State (Unified across entire application for the teacher)
+  const [apiKeyInput, setApiKeyInput] = useState<string>(() => getStoredApiKey(currentUser));
+  const [showKeyPassword, setShowPassword] = useState<boolean>(false);
+  const [apiKeySavedStatus, setApiKeySavedStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setApiKeyInput(getStoredApiKey(currentUser));
+  }, [currentUser]);
+
+  const handleSaveApiKeySetting = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = apiKeyInput.trim();
+    saveStoredApiKey(trimmed, currentUser);
+    setApiKeySavedStatus('✓ Đã lưu API Key dùng chung thành công cho toàn bộ ứng dụng!');
+    setTimeout(() => setApiKeySavedStatus(null), 3000);
+  };
+
+  const handleClearApiKeySetting = () => {
+    clearStoredApiKey(currentUser);
+    setApiKeyInput('');
+    setApiKeySavedStatus('✓ Đã xóa API Key!');
+    setTimeout(() => setApiKeySavedStatus(null), 3000);
+  };
 
   const handleChange = (field: keyof SchoolConfig, value: string) => {
     setFormData((prev) => ({
@@ -138,6 +165,73 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                 </div>
               </button>
+            </div>
+          </div>
+
+          {/* Section API Key: Cấu hình Gemini API Key Dùng Chung Toàn Ứng Dụng */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/90 via-orange-50/80 to-amber-50/90 border-2 border-amber-300 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <h3 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
+                <Key className="w-4 h-4 text-amber-600" />
+                <span>Cấu Hình API Key Gemini (Dùng Chung Toàn Bộ Ứng Dụng)</span>
+              </h3>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-200 text-amber-900 border border-amber-300">
+                1 Lần Dán - Tự Động Áp Dụng Toàn Ứng Dụng
+              </span>
+            </div>
+
+            <p className="text-[11px] text-amber-900 font-medium leading-relaxed">
+              Thầy/Cô chỉ cần dán API Key Gemini tại đây <strong>duy nhất 1 lần</strong> cho tài khoản của mình. Hệ thống sẽ tự động đồng bộ và áp dụng API Key này cho <strong>toàn bộ các mục trong ứng dụng</strong> (Soạn giáo án AI, Phân tích ảnh/PDF SGK, Tự động nhận diện tên bài dạy, PPCT, Lịch báo giảng...).
+            </p>
+
+            <div className="space-y-2 pt-1">
+              <div className="relative">
+                <input
+                  type={showKeyPassword ? 'text' : 'password'}
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="Dán Gemini API Key tại đây (vd: AIzaSy...)"
+                  className="w-full pl-3 pr-10 py-2 rounded-xl border border-amber-300 font-mono text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showKeyPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  title={showKeyPassword ? 'Ẩn API Key' : 'Hiện API Key'}
+                >
+                  {showKeyPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveApiKeySetting}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Lưu API Key Dùng Chung</span>
+                  </button>
+
+                  {apiKeyInput && (
+                    <button
+                      type="button"
+                      onClick={handleClearApiKeySetting}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa Key</span>
+                    </button>
+                  )}
+                </div>
+
+                {apiKeySavedStatus && (
+                  <span className="text-xs font-black text-emerald-700 animate-in fade-in">
+                    {apiKeySavedStatus}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           {/* Section 1: Trường học & Cơ quan */}

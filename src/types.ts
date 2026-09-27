@@ -351,6 +351,8 @@ export interface LessonActivity {
 
 export interface PeriodPlan {
   periodIndex: number; // 1, 2, 3...
+  subSubject?: string; // Phân môn (ví dụ: Đọc, Luyện từ và câu, Viết, Đọc mở rộng, Lịch sử, Địa lí...)
+  lessonTitle?: string; // Tên bài dạy trực tiếp của tiết học đó
   weekNumber?: number; // Tuần thứ mấy (ví dụ: Tuần 1, Tuần 2)
   ppctPeriodIndex?: number; // Tiết theo PPCT (ví dụ: Tiết 1, Tiết 2, Tiết 3...)
   ppctPeriodsText?: string;
@@ -358,7 +360,9 @@ export interface PeriodPlan {
   header: {
     subject: string;
     grade: number | string;
-    title: string; // vd: "Bài 1. Thông tin và quyết định (2 tiết) ; Tiết 1"
+    title: string; // Tên bài dạy chung và tổng số tiết (vd: "Bài 1: Cổng trường mở ra (2 tiết)")
+    subSubject?: string;
+    lessonTitle?: string;
     timeRange?: string; // vd: "từ 09/09/2024 đến 13/09/2024"
     weekNumber?: number;
   };

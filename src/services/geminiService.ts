@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { UploadedFileInfo, DetailedLessonPlan, PpctItem } from '../types';
+import { getStoredApiKey } from '../utils/apiKeyStorage';
 
 /**
  * CHỈ THỊ HỆ THỐNG (SYSTEM INSTRUCTION) - CÔNG VĂN 2345/BGDĐT-GDTH
@@ -49,6 +50,11 @@ QUY ĐỊNH BẮT BUỘC VỀ TRÌNH BÀY HOẠT ĐỘNG:
 
 - Mọi hành động của GV và HS phải diễn giải CỰC KỲ CHI TIẾT, BÁM SÁT TÊN BÀI HỌC VÀ NỘI DUNG SGK/TỆP ĐÍNH KÈM.
 - KHÔNG dùng câu mẫu chung chung hay lặp lại. Nếu có tệp đính kèm (ảnh/PDF SGK), PHẢI trích xuất và phân tích toàn bộ bài tập, hình ảnh, văn bản trong tệp đó vào nội dung hoạt động.
+
+IV. QUY ĐỊNH BẮT BUỘC VỀ TIÊU ĐỀ BÀI HỌC:
+1. Tên bài dạy / Tiêu đề ("title", "topic") BẮT BUỘC viết TRỰC TIẾP, NGẮN GỌN TÊN BÀI HỌC (Ví dụ: "Bài 1: Cổng trường mở ra (Tiết 1)", "Bài 1: Tìm hiểu cách viết bài văn kể chuyện sáng tạo").
+2. TUYỆT ĐỐI KHÔNG chèn tên môn hay tiền tố phân môn như "Tiếng Việt (Phân môn: ...)", "Môn Tiếng Việt - ", "Phân môn: ..." vào trước tiêu đề bài dạy.
+3. NỘI DUNG DẠY HỌC MỖI TIẾT HỌC PHẢI BÁM SÁT ĐÚNG 100% YÊU CẦU NỘI DUNG VÀ YÊU CẦU CẦN ĐẠT CỦA PHÂN MÔN TRONG PPCT.
 `;
 
 // Safe JSON parser helper
@@ -86,11 +92,7 @@ export async function analyzeLessonFileWithGemini(
   files: UploadedFileInfo[],
   apiKey?: string
 ): Promise<{ topic?: string; subject?: string; grade?: string; bookSeries?: string } | null> {
-  const apiKeyToUse =
-    apiKey ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key') || '' : '') ||
-    ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) ||
-    '';
+  const apiKeyToUse = apiKey || getStoredApiKey();
   if (!apiKeyToUse.trim() || files.length === 0) return null;
 
   try {
@@ -170,7 +172,7 @@ export async function generateLessonPlanWithGemini(params: {
   attachedFiles?: UploadedFileInfo[];
   apiKey?: string;
 }): Promise<DetailedLessonPlan | null> {
-  const apiKeyToUse = params.apiKey || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
+  const apiKeyToUse = params.apiKey || getStoredApiKey();
   if (!apiKeyToUse.trim()) return null;
 
   try {
@@ -214,9 +216,20 @@ YÊU CẦU SOẠN KẾ HOẠCH BÀI DẠY (GIÁO ÁN) CÔNG VĂN 2345/BGDĐT-GDT
 
 Nhiệm vụ: Hãy sinh đầy đủ ${params.totalPeriods} tiết học. Mỗi tiết học BẮT BUỘC tuân thủ đúng cấu trúc Công văn 2345 (I. Yêu cầu cần đạt, II. Đồ dùng dạy học, III. Các hoạt động dạy học gồm 4 bước sư phạm quy chuẩn).
 
+QUY ĐỊNH BẮT BUỘC VỀ TIÊU ĐỀ & PHÂN MÔN TRONG KẾ HOẠCH BÀI DẠY:
+1. Tên bài dạy chung & Tổng số tiết nằm ở trên: "topic" / "header.title" = "${params.topic} (${params.totalPeriods} tiết)".
+2. Đối với các môn học có Phân môn (ví dụ Tiếng Việt có Đọc, Luyện từ và câu, Viết, Đọc mở rộng, Nói và nghe; Lịch sử & Địa lí có Lịch sử, Địa lí...):
+   - BẮT BUỘC cung cấp trường "subSubject" cho mỗi tiết học (ví dụ "Đọc", "Luyện từ và câu", "Viết", "Đọc mở rộng", "Lịch sử", "Địa lí"...).
+   - "lessonTitle": Tên bài dạy trực tiếp của tiết học đó (ví dụ: "Bài 1: Cổng trường mở ra (Tiết 1)", "Bài 1: Tìm hiểu cách viết bài văn kể chuyện sáng tạo"...).
+3. Đối với các môn học KHÔNG có Phân môn (ví dụ Tin học, Toán, Đạo đức, Tự nhiên và Xã hội...):
+   - Trường "subSubject" để rỗng ("").
+   - BỎ HOÀN TOÀN dòng phía dưới thời gian thực hiện (vì tiêu đề tên bài dạy và tổng số tiết đã nằm ở phía trên).
+4. TUYỆT ĐỐI KHÔNG chèn tiền tố rườm rà như "${params.subject} (Phân môn: ...)", "Môn ${params.subject} - " vào tiêu đề.
+5. Tất cả các hoạt động dạy học PHẢI diễn giải đúng 100% nội dung kiến thức, kỹ năng của bài học theo PPCT.
+
 Trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdown code fence) theo cấu trúc:
 {
-  "topic": "${params.topic}",
+  "topic": "${params.topic} (${params.totalPeriods} tiết)",
   "subject": "${params.subject}",
   "grade": "${params.grade}",
   "totalPeriods": ${params.totalPeriods},
@@ -227,6 +240,8 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdow
   "periodPlans": [
     {
       "periodIndex": 1,
+      "subSubject": "Tên Phân môn (vd: Đọc, Viết, LTVC, Đọc mở rộng, Lịch sử... hoặc rỗng nếu môn không chia phân môn)",
+      "lessonTitle": "Tên bài dạy của riêng tiết 1",
       "weekNumber": ${params.weekNumber},
       "ppctPeriodIndex": 1,
       "ppctPeriodsText": "Tiết 1 (Tuần ${params.weekNumber}) theo PPCT",
@@ -234,7 +249,9 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdow
       "header": {
         "subject": "${params.subject}",
         "grade": "${params.grade}",
-        "title": "${params.topic} (${params.totalPeriods} tiết) ; Tiết 1",
+        "title": "${params.topic} (${params.totalPeriods} tiết)",
+        "subSubject": "Tên Phân môn (nếu có)",
+        "lessonTitle": "Tên bài dạy tiết 1",
         "timeRange": "${params.timeRange}",
         "weekNumber": ${params.weekNumber}
       },

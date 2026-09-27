@@ -139,27 +139,59 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       return 0;
     };
 
-    // Helper kiểm tra khớp mờ Phân môn
-    const isSubMatch = (pSub?: string, slotSub?: string): boolean => {
-      if (!pSub && !slotSub) return true;
-      if (!pSub || !slotSub) return true;
-      const a = pSub.trim().toLowerCase();
-      const b = slotSub.trim().toLowerCase();
-      if (a === b) return true;
-      if (a.includes(b) || b.includes(a)) return true;
+    // Helper phân loại nhóm phân môn Tiếng Việt chuẩn hóa
+    const getNormalizedSubCategory = (subSubject: string, lessonName: string = ''): string => {
+      const s = (subSubject || '').trim().toLowerCase();
+      const l = (lessonName || '').trim().toLowerCase();
 
-      // Key aliases
-      if ((a.includes('đọc') || a.includes('tập đọc')) && (b.includes('đọc') || b.includes('tập đọc'))) return true;
-      if ((a.includes('ltvc') || a.includes('từ và câu')) && (b.includes('ltvc') || b.includes('từ và câu'))) return true;
-      if ((a.includes('viết') || a.includes('tập làm văn') || a.includes('chính tả')) && (b.includes('viết') || b.includes('tập làm văn') || b.includes('chính tả'))) return true;
-      if ((a.includes('nói') || a.includes('nghe')) && (b.includes('nói') || b.includes('nghe'))) return true;
-      if (a.includes('lịch sử') && b.includes('lịch sử')) return true;
-      if (a.includes('địa lí') && b.includes('địa lí')) return true;
-      if (a.includes('âm nhạc') && b.includes('âm nhạc')) return true;
-      if (a.includes('mĩ thuật') && b.includes('mĩ thuật')) return true;
-      if (a.includes('chào cờ') && b.includes('chào cờ')) return true;
-      if (a.includes('sinh hoạt lớp') && b.includes('sinh hoạt lớp')) return true;
-      if (a.includes('chủ đề') && b.includes('chủ đề')) return true;
+      // Nếu phân môn (subSubject) được điền rõ ràng, ưu tiên dùng phân môn làm chuẩn
+      if (s) {
+        if (s.includes('mở rộng') || s.includes('đmr')) return 'doc_mo_rong';
+        if (s.includes('học vần') || s.includes('vần')) return 'hoc_van';
+        if (s.includes('viết') || s.includes('tập làm văn') || s.includes('tlv') || s.includes('chính tả') || s.includes('tập viết')) return 'viet';
+        if (s.includes('ltvc') || s.includes('từ và câu') || s.includes('luyện từ')) return 'ltvc';
+        if (s.includes('kể chuyện')) return 'ke_chuyen';
+        if (s.includes('nói') || s.includes('nghe')) return 'noi_nghe';
+        if (s.includes('ôn tập')) return 'on_tap';
+        if (s.includes('đánh giá') || s.includes('kiểm tra')) return 'danh_gia';
+        if (s.includes('đọc') || s.includes('tập đọc')) return 'doc';
+        return s;
+      }
+
+      // Nếu phân môn để trống, mới quét từ khóa định danh trong tên bài dạy
+      if (l.includes('đọc mở rộng') || l.includes('đmr:')) return 'doc_mo_rong';
+      if (l.includes('học vần') || l.includes('tập vần')) return 'hoc_van';
+      if (l.includes('tập làm văn') || l.includes('chính tả:') || l.includes('tập viết:') || l.includes('viết bài văn') || l.includes('tìm hiểu cách viết') || l.includes('viết đoạn văn') || l.includes('viết:') || l.includes('luyện viết')) return 'viet';
+      if (l.includes('luyện từ và câu') || l.includes('ltvc:')) return 'ltvc';
+      if (l.includes('kể chuyện:') || l.includes('nói và nghe: kể chuyện')) return 'ke_chuyen';
+      if (l.includes('nói và nghe')) return 'noi_nghe';
+      if (l.includes('ôn tập:')) return 'on_tap';
+      if (l.includes('đánh giá giữa') || l.includes('đánh giá cuối')) return 'danh_gia';
+      if (l.includes('tập đọc:') || l.includes('đọc:')) return 'doc';
+
+      return 'general';
+    };
+
+    // Helper kiểm tra khớp mờ Phân môn chuẩn xác
+    const isSubMatch = (pSub?: string, slotSub?: string, pLessonName?: string): boolean => {
+      const slotCat = getNormalizedSubCategory(slotSub || '');
+      const ppctCat = getNormalizedSubCategory(pSub || '', pLessonName || '');
+
+      if (slotCat === 'general' || ppctCat === 'general') {
+        return true;
+      }
+
+      if (slotCat === ppctCat) {
+        return true;
+      }
+
+      // Cho phép "Nói và nghe" và "Kể chuyện" khớp linh hoạt với nhau nếu không có bài riêng
+      if (
+        (slotCat === 'ke_chuyen' && ppctCat === 'noi_nghe') ||
+        (slotCat === 'noi_nghe' && ppctCat === 'ke_chuyen')
+      ) {
+        return true;
+      }
 
       return false;
     };
@@ -184,7 +216,8 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       const classGrade = detectGrade(slot.grade, slot.className);
       const cleanSlotSubj = (slot.subject || '').trim();
       const cleanSlotSubSubject = (slot.subSubject || '').trim();
-      const key = `${classGrade}_${cleanSlotSubj.toLowerCase()}_${cleanSlotSubSubject.toLowerCase()}`;
+      const normSubCategory = getNormalizedSubCategory(cleanSlotSubSubject);
+      const key = `${classGrade}_${cleanSlotSubj.toLowerCase()}_${normSubCategory}`;
       const count = (subjectOccurrences[key] || 0) + 1;
       subjectOccurrences[key] = count;
 
@@ -200,11 +233,11 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       let matchingPpctList = (ppctGradeAndWeek.length > 0 ? ppctGradeAndWeek : ppctForWeek).filter(
         (p) =>
           isSubjectMatch(p.subject, cleanSlotSubj) &&
-          isSubMatch(p.subSubject, cleanSlotSubSubject)
+          isSubMatch(p.subSubject, cleanSlotSubSubject, p.lessonName)
       );
 
-      // 4. Nếu chưa tìm thấy, nới lỏng tìm theo Tên môn
-      if (matchingPpctList.length === 0) {
+      // 4. Nếu chưa tìm thấy và không yêu cầu phân môn cụ thể, mới nới lỏng tìm theo Tên môn
+      if (matchingPpctList.length === 0 && !cleanSlotSubSubject) {
         matchingPpctList = (ppctGradeAndWeek.length > 0 ? ppctGradeAndWeek : ppctForWeek).filter(
           (p) => isSubjectMatch(p.subject, cleanSlotSubj)
         );
@@ -220,7 +253,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         matchingPpct = ppctList.find(
           (p) =>
             isSubjectMatch(p.subject, cleanSlotSubj) &&
-            isSubMatch(p.subSubject, cleanSlotSubSubject) &&
+            isSubMatch(p.subSubject, cleanSlotSubSubject, p.lessonName) &&
             Number(p.week) === currentWeek
         );
       }
@@ -734,7 +767,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 
                     {/* TIẾT */}
                     <td className={`px-1 text-center border border-black font-bold align-middle ${dynamicCellPy}`}>
-                      {row.period}
+                      {isNaN(row.period) ? 1 : row.period}
                     </td>
 
                     {/* LỚP (Chỉ hiển thị với Giáo viên bộ môn) */}

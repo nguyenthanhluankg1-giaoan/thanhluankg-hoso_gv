@@ -15,6 +15,7 @@ import {
 import { saveAs } from 'file-saver';
 import { SchoolConfig, LessonPlanRow } from '../types';
 import { getDayOfWeekName, getWeekDateRange, formatCleanActivityTitle, abbreviateIntegrationText } from './dateUtils';
+import { cleanLessonTitle } from './helpers';
 
 export async function exportLessonPlanToDocx(
   config: SchoolConfig,
@@ -631,13 +632,18 @@ export async function exportDetailedLessonPlanToDocx(
       })
     );
 
-    // 3. Tên bài: BÀI 1: ... (2 TIẾT) ; TIẾT 1/2
+    // 3. Tên bài dạy chung & Tổng số tiết ở trên
+    const rawMainTopic = period.header?.title || plan.topic;
+    const mainTopicHeader = rawMainTopic.toLowerCase().includes('tiết')
+      ? rawMainTopic
+      : `${rawMainTopic} (${plan.totalPeriods || 1} tiết)`;
+
     docChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
         children: [
           new TextRun({
-            text: period.header.title.toUpperCase(),
+            text: mainTopicHeader.toUpperCase(),
             bold: true,
             size: 28,
             font: 'Times New Roman'
@@ -660,6 +666,28 @@ export async function exportDetailedLessonPlanToDocx(
         ]
       })
     );
+
+    // 5. Thêm dòng phía dưới thời gian thực hiện nếu môn học CÓ phân môn (Tiết X: [Phân môn] - [Tên bài dạy])
+    const pSub = period.subSubject || period.header?.subSubject || '';
+    const pTitle = period.lessonTitle || period.header?.lessonTitle || cleanLessonTitle(rawMainTopic);
+    const pIndex = period.periodIndex || (idx + 1);
+
+    if (pSub) {
+      const periodLine = `Tiết ${pIndex}: ${pSub} - ${pTitle}`;
+      docChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({
+              text: periodLine,
+              bold: true,
+              size: 26,
+              font: 'Times New Roman'
+            })
+          ]
+        })
+      );
+    }
 
     docChildren.push(new Paragraph({ text: '' }));
 

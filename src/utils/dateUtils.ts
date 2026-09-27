@@ -96,6 +96,7 @@ export function getDateForDayOfWeek(
 }
 
 export function getDayOfWeekName(dayOfWeek: number): string {
+  if (isNaN(dayOfWeek)) return 'Thứ Hai';
   switch (dayOfWeek) {
     case 2:
       return 'Thứ Hai';

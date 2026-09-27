@@ -32,12 +32,14 @@ import { DetailedLessonPlan, PeriodPlan, SchoolConfig, UserAccount, PpctItem } f
 import { exportDetailedLessonPlanToDocx } from '../utils/docxExport';
 import { defaultSchoolConfig } from '../data/defaultData';
 import { getWeekDateRange, formatCleanActivityTitle, abbreviateIntegrationText } from '../utils/dateUtils';
+import { cleanLessonTitle } from '../utils/helpers';
 import {
   loadLessonPlansFromFirestore,
   saveLessonPlansToFirestore,
   loadKhdhDataFromFirestore,
   getUserKhdhStorageKeys
 } from '../services/dbService';
+import { getStoredApiKey, saveStoredApiKey, clearStoredApiKey } from '../utils/apiKeyStorage';
 import {
   analyzeLessonFileWithGemini,
   generateLessonPlanWithGemini
@@ -206,6 +208,10 @@ QUY ĐỊNH BẮT BUỘC VỀ SOẠN GIÁO ÁN:
 4. Nếu có chọn tích hợp Năng lực số: Đưa mã chỉ báo chuẩn dạng [1.3.CB1a] hoặc [4.1.CB2a] vào hoạt động thích hợp.
 5. Nếu có chọn Giáo dục STEM: Soạn chuẩn 4 pha STEM (Pha 1: Xác định vấn đề; Pha 2: Nghiên cứu kiến thức nền; Pha 3: Chế tạo & thử nghiệm; Pha 4: Trưng bày & cải tiến).
 6. Nếu có chọn Công dân số: Tự động trích dẫn bài học phù hợp từ SGK Hành trình Công dân số Lớp ${params.grade} (Bài 1, Bài 2, Bài 3...) và đưa tình huống ứng xử số văn minh vào hoạt động vận dụng.
+7. QUY ĐỊNH BẮT BUỘC VỀ TIÊU ĐỀ BÀI HỌC:
+   - Tên bài / Tiêu đề ("title", "topic") BẮT BUỘC viết TRỰC TIẾP TÊN BÀI HỌC (Ví dụ: "Bài 1: Cổng trường mở ra (Tiết 1)", "Bài 1: Tìm hiểu cách viết bài văn kể chuyện sáng tạo").
+   - TUYỆT ĐỐI KHÔNG chèn tiền tố như "${params.subject} (Phân môn: ...)", "Môn ${params.subject} - ", "Phân môn: ..." vào trước tiêu đề bài dạy.
+   - Tất cả các hoạt động dạy học PHẢI diễn giải đúng 100% nội dung kiến thức, kỹ năng sư phạm của bài học theo PPCT.
 
 Trả về DUY NHẤT một đối tượng JSON hợp lệ (không bọc trong markdown code fence) có cấu trúc:
 {
@@ -354,20 +360,12 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
     timeRange: string;
   } | null>(null);
 
-  // Custom Gemini API Key State (Scoped per account)
-  const userApiKeyKey = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
-  const [customApiKey, setCustomApiKey] = useState<string>(() => {
-    try {
-      return localStorage.getItem(userApiKeyKey) || '';
-    } catch {
-      return '';
-    }
-  });
+  // Custom Gemini API Key State (Unified across all features & teacher account)
+  const [customApiKey, setCustomApiKey] = useState<string>(() => getStoredApiKey(currentUser));
 
   useEffect(() => {
-    const keyName = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
-    setCustomApiKey(localStorage.getItem(keyName) || '');
-  }, [currentUser?.id]);
+    setCustomApiKey(getStoredApiKey(currentUser));
+  }, [currentUser]);
   const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
   const [inputKey, setInputKey] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -556,30 +554,16 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
 
   const handleSaveApiKey = (keyToSave: string) => {
     const trimmed = keyToSave.trim();
-    setCustomApiKey(trimmed);
-    try {
-      const keyName = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
-      if (trimmed) {
-        localStorage.setItem(keyName, trimmed);
-      } else {
-        localStorage.removeItem(keyName);
-      }
-    } catch (e) {
-      console.error('Error saving API key to localStorage:', e);
-    }
+    saveStoredApiKey(trimmed, currentUser);
+    setCustomApiKey(getStoredApiKey(currentUser));
     setShowApiKeyModal(false);
   };
 
   const handleClearApiKey = () => {
+    clearStoredApiKey(currentUser);
     setCustomApiKey('');
     setInputKey('');
     setTestStatus(null);
-    try {
-      const keyName = currentUser?.id ? `gemini_api_key_${currentUser.id}` : 'gemini_api_key_guest';
-      localStorage.removeItem(keyName);
-    } catch (e) {
-      console.error('Error clearing API key:', e);
-    }
   };
 
   const handleTestApiKey = async () => {
@@ -1225,7 +1209,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         if (data.plan && data.plan.periodPlans && data.plan.periodPlans.length > 0) {
           const generatedPlan: DetailedLessonPlan = {
             id: `plan-${Date.now()}`,
-            topic: data.plan.topic || topic,
+            topic: cleanLessonTitle(data.plan.topic || topic),
             subject: data.plan.subject || subject,
             grade: data.plan.grade || grade,
             totalPeriods: data.plan.totalPeriods || totalPeriods,
@@ -1234,7 +1218,12 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
             timeRange: data.plan.timeRange || timeRange,
             ppctPeriodsText: data.plan.ppctPeriodsText || ppctPeriodsText,
             createdAt: new Date().toISOString(),
-            periodPlans: data.plan.periodPlans
+            periodPlans: (data.plan.periodPlans || []).map((p: any) => ({
+              ...p,
+              header: p.header
+                ? { ...p.header, title: cleanLessonTitle(p.header.title) }
+                : p.header
+            }))
           };
           setCurrentPlan(generatedPlan);
           setSelectedPeriodTab(0);
@@ -1259,7 +1248,17 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       });
 
       if (clientPlan && clientPlan.periodPlans && clientPlan.periodPlans.length > 0) {
-        setCurrentPlan(clientPlan);
+        const cleanedClientPlan: DetailedLessonPlan = {
+          ...clientPlan,
+          topic: cleanLessonTitle(clientPlan.topic || topic),
+          periodPlans: (clientPlan.periodPlans || []).map((p) => ({
+            ...p,
+            header: p.header
+              ? { ...p.header, title: cleanLessonTitle(p.header.title) }
+              : p.header
+          }))
+        };
+        setCurrentPlan(cleanedClientPlan);
         setSelectedPeriodTab(0);
         return;
       }
@@ -1984,6 +1983,19 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
                   const weekDateObj = getWeekDateRange(schoolConfig.startDateWeek1 || '2024-09-09', pWeekNum);
                   const displayTimeRange = `từ ngày ${weekDateObj.startDate} đến ngày ${weekDateObj.endDate}`;
 
+                  const rawTopic = period.header?.title || currentPlan.topic;
+                  const mainTopicTitle = rawTopic.toLowerCase().includes('tiết')
+                    ? rawTopic
+                    : `${rawTopic} (${currentPlan.totalPeriods || 1} tiết)`;
+
+                  const pSubSubject = period.subSubject || period.header?.subSubject || '';
+                  const pLessonTitle = period.lessonTitle || period.header?.lessonTitle || cleanLessonTitle(rawTopic);
+                  const pPeriodIndex = period.periodIndex || (pIdx + 1);
+
+                  const periodSpecificLine = pSubSubject
+                    ? `Tiết ${pPeriodIndex}: ${pSubSubject} - ${pLessonTitle}`
+                    : null;
+
                   return (
                     <div key={period.periodIndex} className="space-y-6">
                       {pIdx > 0 && <hr className="border-slate-300 my-8 border-dashed" />}
@@ -1997,10 +2009,17 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
                           MÔN: {currentPlan.subject.toUpperCase()} - LỚP {currentPlan.grade}
                         </p>
                         <h3 className="text-base sm:text-lg font-black text-slate-900 uppercase pt-0.5">
-                          {period.header.title}
+                          {mainTopicTitle}
                         </h3>
-                        <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-slate-600 pt-1">
-                          <span>Thời gian thực hiện: <strong className="text-slate-900">{displayTimeRange}</strong></span>
+                        <div className="text-xs font-semibold text-slate-600 pt-1 space-y-1">
+                          <p>Thời gian thực hiện: <strong className="text-slate-900">{displayTimeRange}</strong></p>
+                          {periodSpecificLine && (
+                            <div className="pt-0.5">
+                              <span className="text-xs sm:text-sm font-black text-teal-900 bg-teal-50/90 inline-block px-3 py-1 rounded-lg border border-teal-200 shadow-2xs">
+                                {periodSpecificLine}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

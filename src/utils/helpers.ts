@@ -44,6 +44,14 @@ export function nowTime(): string {
   return new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
+export function cleanLessonTitle(title: string): string {
+  if (!title) return '';
+  return title
+    .replace(/^([A-Th-ưa-zA-ZÀ-ỹ\s]+)\s*\((Phân môn|phân môn|PM):\s*[^)]+\)\s*[-:]\s*/gi, '')
+    .replace(/^([A-Th-ưa-zA-ZÀ-ỹ\s]+)\s*[-:]\s*(Phân môn|phân môn|PM):\s*[^)]+\s*[-:]\s*/gi, '')
+    .trim();
+}
+
 export function initials(name = ''): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -87,7 +95,8 @@ export function getAccountExpirationInfo(user?: UserAccount | null): {
   }
 
   const diffMs = expTime - Date.now();
-  const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const rawRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const remainingDays = isNaN(rawRemaining) ? 0 : rawRemaining;
   const isExpired = remainingDays <= 0;
 
   const d = new Date(expTime);

@@ -291,20 +291,31 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
           return;
         }
 
-        const newItems: PpctItem[] = rows.map((r, i) => ({
-          id: `ppct-import-${Date.now()}-${i}`,
-          grade: r['Khối lớp'] || r['Khoi'] || r['Grade'] || 3,
-          subject: r['Môn học'] || r['Mon'] || r['Subject'] || 'Tiếng Việt',
-          subSubject: (r['Phân môn'] || r['Phân Môn'] || r['SubSubject'] || '').toString().trim(),
-          week: Number(r['Tuần'] || r['Tuan'] || r['Week'] || 1),
-          periodIndex: Number(r['Tiết theo PPCT'] || r['Tiet'] || r['Period'] || i + 1),
-          lessonName: r['Tên bài dạy'] || r['BaiDay'] || r['Lesson'] || `Bài học ${i + 1}`,
-          integrationNote: r['Nội dung tích hợp / Điều chỉnh'] || r['TichHop'] || '',
-          notes: r['Ghi chú'] || r['GhiChu'] || ''
-        }));
+        const newItems: PpctItem[] = rows.map((r, i) => {
+          const rawGrade = parseInt(r['Khối lớp'] || r['Khoi'] || r['Grade'] || '3', 10);
+          const grade = isNaN(rawGrade) ? 3 : rawGrade;
 
-        onUpdatePpctList([...ppctList, ...newItems]);
-        alert(`Đã nhập thành công ${newItems.length} tiết PPCT từ Excel!`);
+          const rawWeek = parseInt(r['Tuần'] || r['Tuan'] || r['Week'] || '1', 10);
+          const week = isNaN(rawWeek) ? 1 : rawWeek;
+
+          const rawPeriodIndex = parseInt(r['Tiết theo PPCT'] || r['Tiet'] || r['Period'] || String(i + 1), 10);
+          const periodIndex = isNaN(rawPeriodIndex) ? i + 1 : rawPeriodIndex;
+
+          return {
+            id: `ppct-import-${Date.now()}-${i}`,
+            grade,
+            subject: (r['Môn học'] || r['Mon'] || r['Subject'] || 'Tiếng Việt').toString().trim(),
+            subSubject: (r['Phân môn'] || r['Phân Môn'] || r['SubSubject'] || '').toString().trim(),
+            week,
+            periodIndex,
+            lessonName: (r['Tên bài dạy'] || r['BaiDay'] || r['Lesson'] || `Bài học ${i + 1}`).toString().trim(),
+            integrationNote: (r['Nội dung tích hợp / Điều chỉnh'] || r['TichHop'] || '').toString().trim(),
+            notes: (r['Ghi chú'] || r['GhiChu'] || '').toString().trim()
+          };
+        });
+
+        onUpdatePpctList(newItems);
+        alert(`Đã cập nhật mới toàn bộ ${newItems.length} tiết PPCT từ file Excel (đã thay thế toàn bộ dữ liệu cũ)!`);
       } catch (err) {
         console.error('Import error:', err);
         alert('Lỗi đọc file Excel. Vui lòng kiểm tra lại định dạng!');
@@ -742,55 +753,57 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                 </div>
               </div>
 
-              {/* Phân môn selector based on Grade & Subject */}
-              <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Phân môn (Dành cho GVCN)</span>
-                  </label>
-                  <span className="text-[10px] text-teal-700 font-bold">
-                    Khối {formGrade} • Môn {formSubject}
-                  </span>
-                </div>
+              {/* Phân môn selector based on Grade & Subject (Chỉ hiển thị khi có phân môn) */}
+              {(availableSubSubjects.length > 0 || formSubject === 'Tiếng Việt') && (
+                <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Phân môn (Môn Tiếng Việt)</span>
+                    </label>
+                    <span className="text-[10px] text-teal-700 font-bold">
+                      Khối {formGrade} • Môn {formSubject}
+                    </span>
+                  </div>
 
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={formSubSubject}
-                    onChange={(e) => setFormSubSubject(e.target.value)}
-                    placeholder="Chọn hoặc nhập tên phân môn (ví dụ: Tập đọc, LTVC, Tập làm văn, Lịch sử...)"
-                    className="w-full px-3 py-2 rounded-xl border border-teal-300 text-xs font-bold text-slate-800 bg-white"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formSubSubject}
+                      onChange={(e) => setFormSubSubject(e.target.value)}
+                      placeholder="Chọn hoặc nhập tên phân môn (ví dụ: Tập đọc, LTVC, Tập làm văn...)"
+                      className="w-full px-3 py-2 rounded-xl border border-teal-300 text-xs font-bold text-slate-800 bg-white"
+                    />
 
-                  {availableSubSubjects.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-semibold text-slate-500 mb-1">
-                        Bấm chọn phân môn tương ứng của Khối {formGrade}:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {availableSubSubjects.map((sub) => {
-                          const isSel = formSubSubject === sub;
-                          return (
-                            <button
-                              key={sub}
-                              type="button"
-                              onClick={() => setFormSubSubject(sub)}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                                isSel
-                                  ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
-                                  : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200'
-                              }`}
-                            >
-                              {sub}
-                            </button>
-                          );
-                        })}
+                    {availableSubSubjects.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 mb-1">
+                          Bấm chọn phân môn tương ứng của Khối {formGrade}:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableSubSubjects.map((sub) => {
+                            const isSel = formSubSubject === sub;
+                            return (
+                              <button
+                                key={sub}
+                                type="button"
+                                onClick={() => setFormSubSubject(sub)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                  isSel
+                                    ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                                    : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {sub}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

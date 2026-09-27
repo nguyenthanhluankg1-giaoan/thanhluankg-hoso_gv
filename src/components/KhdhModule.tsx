@@ -311,6 +311,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
             config={config}
             onUpdateConfig={setConfig}
             onResetConfig={handleResetConfig}
+            currentUser={activeUser}
           />
         )}
       </main>

@@ -7,70 +7,77 @@ export interface SubSubjectInfo {
 
 export const PRIMARY_CURRICULUM_MAP: Record<number, SubSubjectInfo[]> = {
   1: [
-    { subject: 'Tiếng Việt', subSubjects: ['Tập đọc (Đọc)', 'Tập viết (Viết)', 'Nói và nghe', 'Ôn tập & Kiểm tra'] },
-    { subject: 'Toán', subSubjects: ['Số và Phép tính', 'Hình học và Đo lường', 'Ôn tập & Thực hành'] },
-    { subject: 'Tự nhiên và Xã hội', subSubjects: ['Tự nhiên và Xã hội'] },
-    { subject: 'Đạo đức', subSubjects: ['Đạo đức'] },
-    { subject: 'Âm nhạc', subSubjects: ['Hát', 'Đọc nhạc', 'Nhạc cụ', 'Thưởng thức âm nhạc'] },
-    { subject: 'Mĩ thuật', subSubjects: ['Vẽ', 'Tạo hình', 'Thủ công'] },
-    { subject: 'Giáo dục thể chất', subSubjects: ['Đội hình đội ngũ', 'Bài tập thể dục', 'Kỹ năng vận động'] },
-    { subject: 'Hoạt động trải nghiệm', subSubjects: ['Sinh hoạt dưới cờ (Chào cờ)', 'Hoạt động giáo dục theo chủ đề', 'Sinh hoạt lớp'] }
+    { subject: 'Tiếng Việt', subSubjects: ['Tập đọc (Đọc)', 'Học vần', 'Đọc mở rộng', 'Tập viết (Viết)', 'Nói và nghe', 'Kể chuyện', 'Ôn tập'] },
+    { subject: 'Toán', subSubjects: [] },
+    { subject: 'Tự nhiên và Xã hội', subSubjects: [] },
+    { subject: 'Đạo đức', subSubjects: [] },
+    { subject: 'Âm nhạc', subSubjects: [] },
+    { subject: 'Mĩ thuật', subSubjects: [] },
+    { subject: 'Giáo dục thể chất', subSubjects: [] },
+    { subject: 'Hoạt động trải nghiệm', subSubjects: [] }
   ],
   2: [
-    { subject: 'Tiếng Việt', subSubjects: ['Tập đọc (Đọc)', 'Chính tả / Viết', 'Luyện từ và câu', 'Nói và nghe', 'Tập làm văn'] },
-    { subject: 'Toán', subSubjects: ['Số và Phép tính', 'Hình học và Đo lường', 'Một số yếu tố Thống kê', 'Thực hành trải nghiệm'] },
-    { subject: 'Tự nhiên và Xã hội', subSubjects: ['Tự nhiên và Xã hội'] },
-    { subject: 'Đạo đức', subSubjects: ['Đạo đức'] },
-    { subject: 'Âm nhạc', subSubjects: ['Âm nhạc'] },
-    { subject: 'Mĩ thuật', subSubjects: ['Mĩ thuật'] },
-    { subject: 'Giáo dục thể chất', subSubjects: ['Giáo dục thể chất'] },
-    { subject: 'Hoạt động trải nghiệm', subSubjects: ['Sinh hoạt dưới cờ (Chào cờ)', 'Hoạt động giáo dục theo chủ đề', 'Sinh hoạt lớp'] }
+    { subject: 'Tiếng Việt', subSubjects: ['Tập đọc (Đọc)', 'Học vần', 'Đọc mở rộng', 'Chính tả / Viết', 'Luyện từ và câu', 'Nói và nghe', 'Kể chuyện', 'Tập làm văn', 'Ôn tập'] },
+    { subject: 'Toán', subSubjects: [] },
+    { subject: 'Tự nhiên và Xã hội', subSubjects: [] },
+    { subject: 'Đạo đức', subSubjects: [] },
+    { subject: 'Âm nhạc', subSubjects: [] },
+    { subject: 'Mĩ thuật', subSubjects: [] },
+    { subject: 'Giáo dục thể chất', subSubjects: [] },
+    { subject: 'Hoạt động trải nghiệm', subSubjects: [] }
   ],
   3: [
-    { subject: 'Tiếng Việt', subSubjects: ['Đọc (Tập đọc)', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Góc sáng tạo'] },
-    { subject: 'Toán', subSubjects: ['Số và Phép tính', 'Hình học và Đo lường', 'Thống kê & Xác suất', 'Thực hành & Ôn tập'] },
-    { subject: 'Tự nhiên và Xã hội', subSubjects: ['Tự nhiên và Xã hội'] },
-    { subject: 'Đạo đức', subSubjects: ['Đạo đức'] },
-    { subject: 'Tin học và Công nghệ', subSubjects: ['Tin học', 'Công nghệ'] },
-    { subject: 'Tiếng Anh', subSubjects: ['Listening', 'Speaking', 'Reading', 'Writing', 'Chung'] },
-    { subject: 'Nghệ thuật', subSubjects: ['Âm nhạc', 'Mĩ thuật'] },
-    { subject: 'Giáo dục thể chất', subSubjects: ['Giáo dục thể chất'] },
-    { subject: 'Hoạt động trải nghiệm', subSubjects: ['Sinh hoạt dưới cờ (Chào cờ)', 'Hoạt động giáo dục theo chủ đề', 'Sinh hoạt lớp'] }
+    { subject: 'Tiếng Việt', subSubjects: ['Đọc (Tập đọc)', 'Học vần', 'Đọc mở rộng', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Kể chuyện', 'Ôn tập'] },
+    { subject: 'Toán', subSubjects: [] },
+    { subject: 'Tự nhiên và Xã hội', subSubjects: [] },
+    { subject: 'Đạo đức', subSubjects: [] },
+    { subject: 'Tin học', subSubjects: [] },
+    { subject: 'Công nghệ', subSubjects: [] },
+    { subject: 'Tin học và Công nghệ', subSubjects: [] },
+    { subject: 'Tiếng Anh', subSubjects: [] },
+    { subject: 'Nghệ thuật', subSubjects: [] },
+    { subject: 'Giáo dục thể chất', subSubjects: [] },
+    { subject: 'Hoạt động trải nghiệm', subSubjects: [] },
+    { subject: 'Chào cờ', subSubjects: [] },
+    { subject: 'Sinh hoạt lớp', subSubjects: [] }
   ],
   4: [
-    { subject: 'Tiếng Việt', subSubjects: ['Đọc (Tập đọc)', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Góc sáng tạo'] },
-    { subject: 'Toán', subSubjects: ['Số và Phép tính', 'Hình học và Đo lường', 'Thống kê & Xác suất', 'Thực hành & Ôn tập'] },
-    { subject: 'Khoa học', subSubjects: ['Khoa học'] },
-    { subject: 'Lịch sử và Địa lí', subSubjects: ['Lịch sử', 'Địa lí'] },
-    { subject: 'Đạo đức', subSubjects: ['Đạo đức'] },
-    { subject: 'Tin học và Công nghệ', subSubjects: ['Tin học', 'Công nghệ'] },
-    { subject: 'Tiếng Anh', subSubjects: ['Tiếng Anh / Ngoại ngữ'] },
-    { subject: 'Nghệ thuật', subSubjects: ['Âm nhạc', 'Mĩ thuật'] },
-    { subject: 'Giáo dục thể chất', subSubjects: ['Giáo dục thể chất'] },
-    { subject: 'Hoạt động trải nghiệm', subSubjects: ['Sinh hoạt dưới cờ (Chào cờ)', 'Hoạt động giáo dục theo chủ đề', 'Sinh hoạt lớp'] }
+    { subject: 'Tiếng Việt', subSubjects: ['Đọc (Tập đọc)', 'Học vần', 'Đọc mở rộng', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Kể chuyện', 'Ôn tập'] },
+    { subject: 'Toán', subSubjects: [] },
+    { subject: 'Khoa học', subSubjects: [] },
+    { subject: 'Lịch sử và Địa lí', subSubjects: [] },
+    { subject: 'Đạo đức', subSubjects: [] },
+    { subject: 'Tin học', subSubjects: [] },
+    { subject: 'Công nghệ', subSubjects: [] },
+    { subject: 'Tin học và Công nghệ', subSubjects: [] },
+    { subject: 'Tiếng Anh', subSubjects: [] },
+    { subject: 'Nghệ thuật', subSubjects: [] },
+    { subject: 'Giáo dục thể chất', subSubjects: [] },
+    { subject: 'Hoạt động trải nghiệm', subSubjects: [] },
+    { subject: 'Chào cờ', subSubjects: [] },
+    { subject: 'Sinh hoạt lớp', subSubjects: [] }
   ],
   5: [
-    { subject: 'Tiếng Việt', subSubjects: ['Đọc (Tập đọc)', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Ôn tập & Đánh giá'] },
-    { subject: 'Toán', subSubjects: ['Số và Phép tính', 'Hình học và Đo lường', 'Thống kê & Xác suất', 'Thực hành & Ôn tập'] },
-    { subject: 'Khoa học', subSubjects: ['Khoa học'] },
-    { subject: 'Lịch sử và Địa lí', subSubjects: ['Lịch sử', 'Địa lí'] },
-    { subject: 'Đạo đức', subSubjects: ['Đạo đức'] },
-    { subject: 'Tin học và Công nghệ', subSubjects: ['Tin học', 'Công nghệ'] },
-    { subject: 'Tiếng Anh', subSubjects: ['Tiếng Anh / Ngoại ngữ'] },
-    { subject: 'Nghệ thuật', subSubjects: ['Âm nhạc', 'Mĩ thuật'] },
-    { subject: 'Giáo dục thể chất', subSubjects: ['Giáo dục thể chất'] },
-    { subject: 'Hoạt động trải nghiệm', subSubjects: ['Sinh hoạt dưới cờ (Chào cờ)', 'Hoạt động giáo dục theo chủ đề', 'Sinh hoạt lớp'] }
+    { subject: 'Tiếng Việt', subSubjects: ['Đọc (Tập đọc)', 'Học vần', 'Đọc mở rộng', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Kể chuyện', 'Ôn tập'] },
+    { subject: 'Toán', subSubjects: [] },
+    { subject: 'Khoa học', subSubjects: [] },
+    { subject: 'Lịch sử và Địa lí', subSubjects: [] },
+    { subject: 'Đạo đức', subSubjects: [] },
+    { subject: 'Tin học', subSubjects: [] },
+    { subject: 'Công nghệ', subSubjects: [] },
+    { subject: 'Tin học và Công nghệ', subSubjects: [] },
+    { subject: 'Tiếng Anh', subSubjects: [] },
+    { subject: 'Nghệ thuật', subSubjects: [] },
+    { subject: 'Giáo dục thể chất', subSubjects: [] },
+    { subject: 'Hoạt động trải nghiệm', subSubjects: [] },
+    { subject: 'Chào cờ', subSubjects: [] },
+    { subject: 'Sinh hoạt lớp', subSubjects: [] }
   ]
 };
 
-// Fallback danh mục phân môn chung cho tất cả các môn
+// Fallback danh mục phân môn chung (Chỉ duy nhất Tiếng Việt có phân môn)
 export const COMMON_SUB_SUBJECTS_MAP: Record<string, string[]> = {
-  'Tiếng Việt': ['Đọc (Tập đọc)', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Góc sáng tạo'],
-  'Toán': ['Số và Phép tính', 'Hình học và Đo lường', 'Thống kê & Xác suất', 'Thực hành trải nghiệm'],
-  'Lịch sử và Địa lí': ['Lịch sử', 'Địa lí'],
-  'Nghệ thuật': ['Âm nhạc', 'Mĩ thuật'],
-  'Tin học và Công nghệ': ['Tin học', 'Công nghệ'],
-  'Hoạt động trải nghiệm': ['Sinh hoạt dưới cờ (Chào cờ)', 'Hoạt động giáo dục theo chủ đề', 'Sinh hoạt lớp']
+  'Tiếng Việt': ['Đọc (Tập đọc)', 'Học vần', 'Đọc mở rộng', 'Luyện từ và câu (LTVC)', 'Viết (Tập làm văn)', 'Nói và nghe', 'Kể chuyện', 'Ôn tập']
 };
 
 /**

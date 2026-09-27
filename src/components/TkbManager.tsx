@@ -549,14 +549,19 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
         }
 
         const newSlots: TimetableSlot[] = rows.map((r) => {
-          const rawDay = Number(r['Thứ'] || r['Thu'] || r['Day'] || 2);
+          const parsedDay = parseInt(r['Thứ'] || r['Thu'] || r['Day'] || '2', 10);
+          const rawDay = isNaN(parsedDay) ? 2 : parsedDay;
+
           const rawSessionStr = (r['Buổi'] || r['Buoi'] || r['Session'] || 'Sáng').toString().toLowerCase();
           const session: 'morning' | 'afternoon' = rawSessionStr.includes('chiều') || rawSessionStr.includes('afternoon') ? 'afternoon' : 'morning';
-          const period = Number(r['Tiết'] || r['Tiet'] || r['Period'] || 1);
+
+          const parsedPeriod = parseInt(r['Tiết'] || r['Tiet'] || r['Period'] || '1', 10);
+          const period = isNaN(parsedPeriod) ? 1 : parsedPeriod;
+
           const className = (r['Tên Lớp'] || r['Lớp'] || r['Lop'] || r['Class'] || '3A1').toString().trim();
           const subject = (r['Môn Học'] || r['Môn'] || r['Mon'] || r['Subject'] || 'Tin học').toString().trim();
           const gradeMatch = className.match(/^(1[0-2]|[1-9])/);
-          const grade = gradeMatch ? Number(gradeMatch[1]) : 3;
+          const grade = gradeMatch ? (isNaN(Number(gradeMatch[1])) ? 3 : Number(gradeMatch[1])) : 3;
 
           return {
             id: `tkb-${rawDay}-${session}-${period}`,
@@ -989,49 +994,51 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
                 </div>
               </div>
 
-              {/* 2. Phân môn (Dành cho GVCN) */}
-              <div className="p-3 bg-teal-50/60 rounded-2xl border border-teal-200 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-teal-700" />
-                    <span>Phân môn (Dành cho GVCN)</span>
-                  </label>
-                  <span className="text-[10px] text-teal-800 font-bold">
-                    Khối {inputGrade} • {inputSubject}
-                  </span>
-                </div>
-
-                <input
-                  type="text"
-                  value={inputSubSubject}
-                  onChange={(e) => setInputSubSubject(e.target.value)}
-                  placeholder="Nhập phân môn (ví dụ: Tập đọc, LTVC, Tập làm văn, Lịch sử...)"
-                  className="w-full px-3 py-1.5 rounded-xl border border-teal-300 text-xs font-bold text-slate-800 bg-white"
-                />
-
-                {availableSubSubjects.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                    <span className="text-[10px] font-medium text-slate-500 mr-1">Gợi ý:</span>
-                    {availableSubSubjects.map((sub) => {
-                      const isSel = inputSubSubject === sub;
-                      return (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => setInputSubSubject(sub)}
-                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                            isSel
-                              ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
-                              : 'bg-white hover:bg-teal-100 text-slate-700 border-teal-200'
-                          }`}
-                        >
-                          {sub}
-                        </button>
-                      );
-                    })}
+              {/* 2. Phân môn (Chỉ hiển thị cho môn Tiếng Việt hoặc môn có phân môn) */}
+              {(availableSubSubjects.length > 0 || inputSubject === 'Tiếng Việt') && (
+                <div className="p-3 bg-teal-50/60 rounded-2xl border border-teal-200 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-teal-700" />
+                      <span>Phân môn (Môn Tiếng Việt)</span>
+                    </label>
+                    <span className="text-[10px] text-teal-800 font-bold">
+                      Khối {inputGrade} • {inputSubject}
+                    </span>
                   </div>
-                )}
-              </div>
+
+                  <input
+                    type="text"
+                    value={inputSubSubject}
+                    onChange={(e) => setInputSubSubject(e.target.value)}
+                    placeholder="Nhập phân môn (ví dụ: Tập đọc, LTVC, Tập làm văn...)"
+                    className="w-full px-3 py-1.5 rounded-xl border border-teal-300 text-xs font-bold text-slate-800 bg-white"
+                  />
+
+                  {availableSubSubjects.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                      <span className="text-[10px] font-medium text-slate-500 mr-1">Gợi ý:</span>
+                      {availableSubSubjects.map((sub) => {
+                        const isSel = inputSubSubject === sub;
+                        return (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => setInputSubSubject(sub)}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              isSel
+                                ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                                : 'bg-white hover:bg-teal-100 text-slate-700 border-teal-200'
+                            }`}
+                          >
+                            {sub}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 3. Lớp học & Khối lớp */}
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
