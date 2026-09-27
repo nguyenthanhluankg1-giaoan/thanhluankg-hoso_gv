@@ -47,6 +47,7 @@ import { LinksTab } from './components/tabs/LinksTab';
 import { StatsTab } from './components/tabs/StatsTab';
 import { DataTab } from './components/tabs/DataTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
+import { WorksheetsTab } from './components/tabs/WorksheetsTab';
 import { KhdhModule } from './components/KhdhModule';
 
 export default function App() {
@@ -328,12 +329,17 @@ export default function App() {
       case 'settings':
         return {
           title: 'Cài Đặt Hệ Thống & Giáo Viên',
-          subtitle: 'Cập nhật hồ sơ giảng dạy cá nhân và danh mục môn học'
+          subtitle: 'Cập nhật sổ tay giảng dạy cá nhân và danh mục môn học'
         };
       case 'khdh':
         return {
           title: 'Kế Hoạch Dạy Học (KHDH)',
           subtitle: 'Quản lý kế hoạch dạy học, phân phối chương trình, thời khóa biểu & xuất file Word'
+        };
+      case 'worksheets':
+        return {
+          title: 'Phiếu Học Tập',
+          subtitle: 'Thư mục quản lý và lưu trữ phiếu học tập'
         };
       default:
         return {
@@ -462,7 +468,7 @@ export default function App() {
         />
 
         {/* Thanh chọn công cụ Quản lý lớp học ở bên phải (như mục Soạn giáo án) */}
-        {state.currentPage !== 'khdh' && (
+        {state.currentPage !== 'khdh' && state.currentPage !== 'worksheets' && (
           <ClassroomNavBar
             currentPage={state.currentPage}
             onNavigate={handleNavigate}
@@ -596,6 +602,10 @@ export default function App() {
 
           {state.currentPage === 'khdh' && (
             <KhdhModule currentUser={currentUser} activeClassName={activeClass?.name} />
+          )}
+
+          {state.currentPage === 'worksheets' && (
+            <WorksheetsTab currentUser={currentUser} />
           )}
         </main>
       </div>

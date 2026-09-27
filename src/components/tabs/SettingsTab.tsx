@@ -50,7 +50,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ state, onUpdateState, 
       teacher: updated
     }));
 
-    alert('Đã cập nhật hồ sơ giáo viên thành công!');
+    alert('Đã cập nhật sổ tay giáo viên thành công!');
   };
 
   const handleSaveSubjects = (e: React.FormEvent) => {
@@ -78,7 +78,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ state, onUpdateState, 
           <Settings className="w-5 h-5" />
         </span>
         <div>
-          <h2 className="text-xl font-black text-slate-800">Cài đặt Hệ Thống & Hồ Sơ Giáo Viên</h2>
+          <h2 className="text-xl font-black text-slate-800">Cài đặt Hệ Thống & Sổ Tay Giáo Viên</h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Cập nhật thông tin giảng dạy cá nhân và tùy biến danh sách các môn học / hoạt động.
           </p>
@@ -90,7 +90,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ state, onUpdateState, 
         <div className="lg:col-span-7 bg-white rounded-3xl p-6 border-2 border-teal-100 shadow-md">
           <h3 className="text-base font-black text-slate-800 mb-4 flex items-center gap-2">
             <User className="w-5 h-5 text-teal-600" />
-            <span>Hồ sơ Giáo viên Chủ nhiệm & Giảng dạy</span>
+            <span>Sổ Tay Giáo Viên Chủ nhiệm & Giảng dạy</span>
           </h3>
 
           <form onSubmit={handleSaveTeacher} className="space-y-4">
