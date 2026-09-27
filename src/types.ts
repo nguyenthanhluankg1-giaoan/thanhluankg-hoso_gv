@@ -20,6 +20,15 @@ export interface UserAccount {
   expiresAt?: string; // Mốc thời gian ISO hết hạn hoạt động
 }
 
+export interface ContactInfo {
+  title?: string;
+  phone?: string;
+  zalo?: string;
+  qrCode?: string;
+  note?: string;
+  updatedAt?: string;
+}
+
 export interface Student {
   id: string;
   classId: string;

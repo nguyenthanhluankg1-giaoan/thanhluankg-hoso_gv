@@ -22,7 +22,8 @@ import {
   Folder,
   FolderOpen,
   FileText,
-  Calendar
+  Calendar,
+  PhoneCall
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import { Avatar } from './Avatar';
@@ -35,6 +36,7 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenGuide: () => void;
+  onOpenContact?: () => void;
   currentUser?: UserAccount | null;
   onLogout?: () => void;
   systemLogo?: string;
@@ -48,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
   onOpenGuide,
+  onOpenContact,
   currentUser,
   onLogout,
   systemLogo,
@@ -343,6 +346,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <BookOpen className="w-4 h-4" />
             <span>Xem hướng dẫn</span>
           </button>
+
+          {onOpenContact && (
+            <button
+              onClick={onOpenContact}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 text-white font-extrabold text-xs shadow-md shadow-teal-600/20 transition-all cursor-pointer"
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>Liên hệ gia hạn & QR</span>
+            </button>
+          )}
         </div>
       </aside>
     </>

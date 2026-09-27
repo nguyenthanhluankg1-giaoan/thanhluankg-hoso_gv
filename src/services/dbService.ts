@@ -16,7 +16,8 @@ import {
   TimetableSlot,
   LessonPlanRow,
   DetailedLessonPlan,
-  ConfiguredClass
+  ConfiguredClass,
+  ContactInfo
 } from '../types';
 import { getDefaultState } from '../utils/helpers';
 
@@ -460,5 +461,57 @@ export function saveSessionUser(user: UserAccount | null) {
     }
   } catch (e) {
     console.error('Error saving session user', e);
+  }
+}
+
+const SYSTEM_CONTACT_KEY = 'lopHoc_system_contact_info_v1';
+
+export const DEFAULT_CONTACT_INFO: ContactInfo = {
+  title: 'Thông Tin Liên Hệ Gia Hạn & Hỗ Trợ Kỹ Thuật',
+  phone: '0912 345 678',
+  zalo: '0912 345 678',
+  qrCode: '',
+  note: 'Vui lòng quét mã QR Zalo / Chuyển khoản hoặc liên hệ SĐT trên để được hỗ trợ cấp / gia hạn tài khoản nhanh chóng!',
+  updatedAt: new Date().toISOString()
+};
+
+export function getLocalCachedContactInfo(): ContactInfo {
+  try {
+    const raw = localStorage.getItem(SYSTEM_CONTACT_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.warn('Error reading local contact cache:', e);
+  }
+  return DEFAULT_CONTACT_INFO;
+}
+
+export async function fetchContactInfoFromFirestore(): Promise<ContactInfo> {
+  try {
+    const docRef = doc(db, 'system', 'contact');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data() as ContactInfo;
+      localStorage.setItem(SYSTEM_CONTACT_KEY, JSON.stringify(data));
+      return data;
+    }
+  } catch (err) {
+    console.warn('Failed to fetch contact info from firestore:', err);
+  }
+  return getLocalCachedContactInfo();
+}
+
+export async function saveContactInfoToFirestore(info: ContactInfo): Promise<boolean> {
+  try {
+    const dataToSave = {
+      ...info,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(SYSTEM_CONTACT_KEY, JSON.stringify(dataToSave));
+    const docRef = doc(db, 'system', 'contact');
+    await setDoc(docRef, dataToSave);
+    return true;
+  } catch (err) {
+    console.error('Failed to save contact info to firestore:', err);
+    return false;
   }
 }

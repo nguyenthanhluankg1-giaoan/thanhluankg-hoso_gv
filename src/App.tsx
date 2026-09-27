@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, ShieldAlert, AlertCircle, RefreshCw, LogOut } from 'lucide-react';
-import { AppState, UserAccount } from './types';
+import { Folder, ShieldAlert, AlertCircle, RefreshCw, LogOut, PhoneCall } from 'lucide-react';
+import { AppState, UserAccount, ContactInfo } from './types';
 import {
   loadStoredState,
   saveStoredState,
@@ -17,7 +17,11 @@ import {
   getUserWorkspaceKey,
   INITIAL_DEFAULT_USERS,
   fetchSystemConfig,
-  saveSystemConfig
+  saveSystemConfig,
+  fetchContactInfoFromFirestore,
+  saveContactInfoToFirestore,
+  getLocalCachedContactInfo,
+  DEFAULT_CONTACT_INFO
 } from './services/dbService';
 
 import { LoginScreen } from './components/LoginScreen';
@@ -25,6 +29,7 @@ import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { ClassroomNavBar } from './components/ClassroomNavBar';
 import { GuideModal } from './components/GuideModal';
+import { ContactModal } from './components/ContactModal';
 
 import { HomeTab } from './components/tabs/HomeTab';
 import { AccountsTab } from './components/tabs/AccountsTab';
@@ -53,6 +58,8 @@ export default function App() {
   const [savedTime, setSavedTime] = useState<string>('vừa xong');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [guideModalOpen, setGuideModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfo>(() => getLocalCachedContactInfo());
 
   // Initial load of users & state from Firestore
   useEffect(() => {
@@ -66,6 +73,15 @@ export default function App() {
         }
       } catch (err) {
         console.warn('System config fetch error:', err);
+      }
+
+      try {
+        const cInfo = await fetchContactInfoFromFirestore();
+        if (cInfo && active) {
+          setContactInfo(cInfo);
+        }
+      } catch (err) {
+        console.warn('Contact info fetch error:', err);
       }
 
       try {
@@ -367,9 +383,19 @@ export default function App() {
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-200 text-left text-xs text-teal-900 font-medium">
-              <strong className="font-bold text-teal-950 block mb-0.5">📞 Hướng dẫn đăng ký gia hạn:</strong>
-              Vui lòng liên hệ với Ban Giám Hiệu hoặc Quản trị viên hệ thống để được đăng ký gia hạn thêm số ngày hoạt động. Khi Admin gia hạn xong, Thầy/Cô nhấn nút "Kiểm tra lại trạng thái" dưới đây để tiếp tục sử dụng.
+            <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-200 text-left text-xs text-teal-900 font-medium space-y-2">
+              <div>
+                <strong className="font-bold text-teal-950 block mb-0.5">📞 Hướng dẫn đăng ký gia hạn:</strong>
+                Vui lòng liên hệ với Ban Giám Hiệu hoặc Quản trị viên hệ thống để được đăng ký gia hạn thêm số ngày hoạt động. Khi Admin gia hạn xong, Thầy/Cô nhấn nút "Kiểm tra lại trạng thái" dưới đây để tiếp tục sử dụng.
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactModalOpen(true)}
+                className="w-full py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <PhoneCall className="w-4 h-4" />
+                <span>Xem Mã QR & Thông Tin Liên Hệ Admin</span>
+              </button>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -410,6 +436,7 @@ export default function App() {
         isOpen={mobileSidebarOpen}
         onClose={() => setMobileSidebarOpen(false)}
         onOpenGuide={() => setGuideModalOpen(true)}
+        onOpenContact={() => setContactModalOpen(true)}
         currentUser={currentUser}
         onLogout={handleLogout}
         systemLogo={systemLogo}
@@ -577,6 +604,15 @@ export default function App() {
       <GuideModal
         isOpen={guideModalOpen}
         onClose={() => setGuideModalOpen(false)}
+      />
+
+      {/* Contact & QR Code Modal */}
+      <ContactModal
+        isOpen={contactModalOpen}
+        onClose={() => setContactModalOpen(false)}
+        currentUser={currentUser}
+        contactInfo={contactInfo}
+        onUpdateContactInfo={setContactInfo}
       />
     </div>
   );
