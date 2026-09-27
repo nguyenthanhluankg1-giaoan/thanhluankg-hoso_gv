@@ -38,7 +38,7 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
   const [activeQuizQuestion, setActiveQuizQuestion] = useState<QuizQuestion | null>(null);
   const [isCycleReset, setIsCycleReset] = useState(false);
 
-  const quizQuestionsList = state.quizQuestions && state.quizQuestions.length > 0
+  const quizQuestionsList = Array.isArray(state.quizQuestions)
     ? state.quizQuestions
     : DEFAULT_QUIZ_QUESTIONS;
 
@@ -54,9 +54,7 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
         : currentSubjectPool.filter((q) => q.folderId === state.wheelQuizFolderId))
     : currentSubjectPool;
 
-  const currentQuestionPool = currentFolderPool.length > 0
-    ? currentFolderPool
-    : (currentSubjectPool.length > 0 ? currentSubjectPool : quizQuestionsList);
+  const currentQuestionPool = currentFolderPool;
 
   const usedQuestionIds = state.usedQuizQuestionIds || [];
   const unusedQuestions = currentQuestionPool.filter((q) => !usedQuestionIds.includes(q.id));
@@ -770,7 +768,7 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
           isOpen={questionBankOpen}
           onClose={() => setQuestionBankOpen(false)}
           questions={quizQuestionsList}
-          folders={state.questionFolders || DEFAULT_QUESTION_FOLDERS}
+          folders={Array.isArray(state.questionFolders) ? state.questionFolders : DEFAULT_QUESTION_FOLDERS}
           onSaveQuestions={handleSaveQuestions}
           onSaveFolders={handleSaveFolders}
         />

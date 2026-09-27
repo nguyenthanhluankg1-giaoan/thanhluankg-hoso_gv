@@ -80,7 +80,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentFolders = folders && folders.length > 0 ? folders : DEFAULT_QUESTION_FOLDERS;
+  const currentFolders = Array.isArray(folders) ? folders : DEFAULT_QUESTION_FOLDERS;
 
   // Subjects list
   const subjectsList = Array.from(
