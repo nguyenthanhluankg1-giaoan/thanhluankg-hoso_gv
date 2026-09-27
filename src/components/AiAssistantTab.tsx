@@ -632,8 +632,8 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         continue;
       }
 
-      if (f.size > 20 * 1024 * 1024) {
-        alert(`Tệp "${f.name}" vượt quá 20MB!`);
+      if (f.size > 500 * 1024 * 1024) {
+        alert(`Tệp "${f.name}" vượt quá 500MB! Vui lòng chọn tệp PDF / hình ảnh nhỏ hơn 500MB.`);
         continue;
       }
 
@@ -1385,7 +1385,8 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       });
 
       fullText += `\nIV. ĐIỀU CHỈNH SAU BÀI DẠY (nếu có):\n`;
-      fullText += `${period.postLessonAdjustment || '....................................................................................................'}\n\n`;
+      fullText += `..........................................................................................................................................................................\n`;
+      fullText += `..........................................................................................................................................................................\n\n`;
       fullText += `----------------------------------------------------\n\n`;
     });
 
@@ -1509,7 +1510,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
                       Bấm để chọn <span className="text-teal-600 font-black">Nhiều hình ảnh</span> hoặc <span className="text-teal-600 font-black">PDF</span>
                     </p>
                     <p className="text-[10px] text-slate-500 mt-0.5">
-                      📷 Cho phép tải nhiều trang sách cùng lúc | 📄 Tự động trích xuất nội dung
+                      📷 Cho phép tải nhiều trang sách | 📄 Hỗ trợ tệp PDF lớn (100MB+) & tự động trích xuất nội dung
                     </p>
                   </div>
                 </label>
@@ -2181,19 +2182,28 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
                       </div>
                     </div>
 
-                    {/* 5. IV. ĐIỀU CHỈNH SAU BÀI DẠY */}
-                    <div className="space-y-1.5 pt-2">
+                    {/* 5. IV. ĐIỀU CHỈNH SAU BÀI DẠY (nếu có) */}
+                    <div className="space-y-2 pt-2">
                       <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide bg-slate-100 p-2 rounded-xl">
                         IV. ĐIỀU CHỈNH SAU BÀI DẠY (nếu có):
                       </h4>
-                      <div className="pl-3 space-y-1">
-                        {(period.postLessonAdjustment || '....................................................................................................\n....................................................................................................')
-                          .split('\n')
-                          .map((line, lIdx) => (
-                            <p key={lIdx} className="text-xs text-slate-500 italic font-mono">
-                              {line || '....................................................................................................'}
-                            </p>
-                          ))}
+                      <div className="pl-3 pr-2 space-y-3 pt-1">
+                        {(!period.postLessonAdjustment ||
+                          period.postLessonAdjustment.trim() === '' ||
+                          period.postLessonAdjustment.includes('...')) ? (
+                          <div className="space-y-3 py-1">
+                            <div className="w-full border-b border-dotted border-slate-500 h-4"></div>
+                            <div className="w-full border-b border-dotted border-slate-500 h-4"></div>
+                          </div>
+                        ) : (
+                          period.postLessonAdjustment
+                            .split('\n')
+                            .map((line, lIdx) => (
+                              <p key={lIdx} className="text-xs text-slate-800 italic text-justify leading-relaxed">
+                                {line}
+                              </p>
+                            ))
+                        )}
                       </div>
                     </div>
                   </div>

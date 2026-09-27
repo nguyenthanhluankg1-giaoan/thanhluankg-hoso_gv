@@ -21,6 +21,7 @@ import {
 import * as XLSX from 'xlsx';
 import { TimetableSlot } from '../types';
 import { getDayOfWeekName } from '../utils/dateUtils';
+import { getSubSubjectsByGradeAndSubject } from '../utils/curriculum';
 
 export interface ConfiguredClass {
   id: string;
@@ -123,6 +124,8 @@ interface TkbManagerProps {
   onResetTimetable: () => void;
   configuredClasses?: ConfiguredClass[];
   onUpdateConfiguredClasses?: (classes: ConfiguredClass[]) => void;
+  teacherType?: 'GVCN' | 'GVBM';
+  activeClassName?: string;
 }
 
 export const TkbManager: React.FC<TkbManagerProps> = ({
@@ -130,8 +133,11 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
   onUpdateTimetable,
   onResetTimetable,
   configuredClasses: propConfiguredClasses,
-  onUpdateConfiguredClasses
+  onUpdateConfiguredClasses,
+  teacherType = 'GVCN',
+  activeClassName = '3A1'
 }) => {
+  const isGvcn = teacherType === 'GVCN';
   const days = [2, 3, 4, 5, 6, 7]; // Thứ Hai -> Thứ Bảy
   const periods = [1, 2, 3, 4, 5]; // Tiết 1 -> 5
 
@@ -212,9 +218,15 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
 
   // Form input state
   const [inputClass, setInputClass] = useState<string>('3A1');
-  const [inputSubject, setInputSubject] = useState<string>('Tin học');
+  const [inputSubject, setInputSubject] = useState<string>('Tiếng Việt');
+  const [inputSubSubject, setInputSubSubject] = useState<string>('Đọc (Tập đọc)');
   const [isCustomSubject, setIsCustomSubject] = useState<boolean>(false);
   const [inputGrade, setInputGrade] = useState<number>(3);
+
+  // Compute available sub-subjects dynamically based on Grade & Subject
+  const availableSubSubjects = useMemo(() => {
+    return getSubSubjectsByGradeAndSubject(inputGrade, inputSubject);
+  }, [inputGrade, inputSubject]);
 
   const getSlot = (day: number, session: 'morning' | 'afternoon', period: number) => {
     return timetable.find(
@@ -228,14 +240,19 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
     if (existing) {
       setInputClass(existing.className);
       setInputSubject(existing.subject);
-      setInputGrade(Number(existing.grade) || 3);
+      setInputSubSubject(existing.subSubject || '');
+      setInputGrade(Number(existing.grade) || (isGvcn ? Number(activeClassName.match(/\d+/)?.[0]) || 3 : 3));
       setIsCustomSubject(!ALL_COMMON_SUBJECTS.includes(existing.subject));
       setIsCustomClass(!configuredClasses.some((c) => c.name === existing.className));
     } else {
-      const defaultCls = configuredClasses[0]?.name || '3A1';
-      const defaultGrd = configuredClasses[0]?.grade || 3;
+      const defaultCls = isGvcn ? activeClassName || '3A1' : (configuredClasses[0]?.name || '3A1');
+      const gradeMatch = defaultCls.match(/^(1[0-2]|[1-9])/);
+      const defaultGrd = gradeMatch ? Number(gradeMatch[1]) : (configuredClasses[0]?.grade || 3);
+      const defaultSj = isGvcn ? 'Tiếng Việt' : 'Tin học';
+      const subs = getSubSubjectsByGradeAndSubject(defaultGrd, defaultSj);
       setInputClass(defaultCls);
-      setInputSubject('Tin học');
+      setInputSubject(defaultSj);
+      setInputSubSubject(subs[0] || '');
       setInputGrade(defaultGrd);
       setIsCustomSubject(false);
       setIsCustomClass(false);
@@ -396,6 +413,14 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
     setIsCustomSubject(false);
     setInputSubject(subj);
 
+    // Tự động gợi ý phân môn
+    const subs = getSubSubjectsByGradeAndSubject(inputGrade, subj);
+    if (subs.length > 0) {
+      setInputSubSubject(subs[0]);
+    } else {
+      setInputSubSubject('');
+    }
+
     // Tự động gợi ý tên lớp và khối nếu chọn Chào cờ hoặc Sinh hoạt lớp
     if (subj === 'Chào cờ') {
       setInputClass('Chào cờ');
@@ -422,6 +447,7 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
       period,
       className: inputClass.trim(),
       subject: inputSubject.trim(),
+      subSubject: inputSubSubject.trim(),
       grade: inputGrade
     };
 
@@ -667,16 +693,16 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
                           <div className="p-2 rounded-xl bg-white border border-slate-200/90 shadow-xs text-left group hover:border-teal-300 transition-colors">
                             <div className="flex items-center justify-between gap-1 mb-1">
                               <span className="font-black text-slate-900 text-xs truncate">
-                                Lớp {slot.className}
+                                {slot.subject}
                               </span>
                               <span
                                 className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-md border ${badgeBg}`}
                               >
-                                {slot.grade > 0 ? `K${slot.grade}` : 'ĐB'}
+                                {isGvcn ? `Lớp ${slot.className}` : (slot.grade > 0 ? `K${slot.grade}` : 'ĐB')}
                               </span>
                             </div>
-                            <div className="text-[11px] font-semibold text-slate-600 truncate">
-                              {slot.subject}
+                            <div className="text-[11px] font-bold text-teal-800 truncate">
+                              {slot.subSubject ? slot.subSubject : (isGvcn ? `Khối ${slot.grade}` : slot.subject)}
                             </div>
                           </div>
                         ) : (
@@ -708,14 +734,23 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base sm:text-lg font-black text-slate-800">
-                Thời Khóa Biểu Giảng Dạy
+                {isGvcn
+                  ? `Thời Khóa Biểu Lớp Chủ Nhiệm ${activeClassName ? `(${activeClassName})` : ''}`
+                  : 'Thời Khóa Biểu Giảng Dạy'}
               </h2>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">
+              <span className={`text-[11px] font-black px-2.5 py-0.5 rounded-full border ${
+                isGvcn ? 'bg-teal-100 text-teal-900 border-teal-300' : 'bg-indigo-100 text-indigo-900 border-indigo-300'
+              }`}>
+                {isGvcn ? 'DÀNH CHO GVCN' : 'DÀNH CHO GVBM'}
+              </span>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
                 Tổng cộng: {totalPeriods} tiết
               </span>
             </div>
             <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              Tự động áp dụng và đồng bộ vào Kế hoạch dạy học theo tuần
+              {isGvcn
+                ? `Thời khóa biểu tuần các tiết dạy dành riêng cho Lớp chủ nhiệm ${activeClassName}. Tự động xuất thành Lịch Báo Giảng.`
+                : 'Tự động áp dụng và đồng bộ vào Kế hoạch dạy học theo tuần của Giáo viên bộ môn'}
             </p>
           </div>
         </div>
@@ -841,10 +876,10 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
 
       {/* Slot Editor Modal / Drawer */}
       {selectedSlot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-teal-100 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-teal-100 overflow-hidden my-auto">
             <div
-              className={`px-5 py-4 text-white flex items-center justify-between ${
+              className={`px-5 py-3.5 text-white flex items-center justify-between ${
                 selectedSlot.session === 'morning'
                   ? 'bg-gradient-to-r from-amber-600 to-amber-500'
                   : 'bg-gradient-to-r from-indigo-700 to-teal-600'
@@ -867,19 +902,18 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveSlot} className="p-5 space-y-4">
-              {/* Môn học: Cho phép chọn từ danh sách hoặc nhập tùy chỉnh */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700">
+            <form onSubmit={handleSaveSlot} className="p-4 sm:p-5 space-y-3.5 max-h-[85vh] overflow-y-auto">
+              {/* 1. Môn học */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800">
                     Môn học
                   </label>
                   <span className="text-[10px] font-semibold text-teal-700">
-                    {isCustomSubject ? 'Đang nhập tùy chỉnh' : 'Chọn từ danh mục'}
+                    {isCustomSubject ? 'Đang nhập tùy chỉnh' : 'Chọn danh mục'}
                   </span>
                 </div>
 
-                {/* Dropdown chọn môn */}
                 <select
                   value={
                     isCustomSubject || !ALL_COMMON_SUBJECTS.includes(inputSubject)
@@ -901,32 +935,31 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
                   <option value="custom">✏️ Môn học khác (Tự nhập tên)...</option>
                 </select>
 
-                {/* Ô nhập tùy chỉnh nếu chọn khác hoặc nhập môn ngoài danh sách */}
                 {(isCustomSubject || !ALL_COMMON_SUBJECTS.includes(inputSubject)) && (
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      value={inputSubject}
-                      onChange={(e) => setInputSubject(e.target.value)}
-                      placeholder="Nhập tên môn học..."
-                      className="w-full px-3 py-2 rounded-xl border border-teal-400 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-teal-50/40"
-                      autoFocus
-                      required
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={inputSubject}
+                    onChange={(e) => setInputSubject(e.target.value)}
+                    placeholder="Nhập tên môn học..."
+                    className="w-full px-3 py-2 rounded-xl border border-teal-400 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-teal-50/40"
+                    autoFocus
+                    required
+                  />
                 )}
 
-                {/* Các nút chọn nhanh môn phổ biến nhất toàn cấp phổ thông */}
-                <div className="mt-2 flex flex-wrap gap-1">
+                {/* Phím chọn nhanh môn phổ biến */}
+                <div className="flex flex-wrap gap-1 pt-0.5">
                   {[
+                    'Tiếng Việt',
+                    'Toán',
+                    'Lịch sử và Địa lí',
+                    'Tự nhiên và Xã hội',
+                    'Khoa học',
+                    'Đạo đức',
+                    'Tiếng Anh',
                     'Tin học',
                     'Công nghệ',
-                    'Toán',
-                    'Ngữ văn',
-                    'Tiếng Việt',
-                    'Tiếng Anh',
-                    'Khoa học tự nhiên',
-                    'Lịch sử và Địa lí',
+                    'Nghệ thuật',
                     'Chào cờ',
                     'Sinh hoạt lớp',
                     'Hoạt động trải nghiệm'
@@ -956,154 +989,157 @@ export const TkbManager: React.FC<TkbManagerProps> = ({
                 </div>
               </div>
 
-              {/* Lớp học và Khối lớp: Cho phép giáo viên chọn từ danh sách đã cấu hình mà không phải nhập */}
-              <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <GraduationCap className="w-4 h-4 text-teal-600" />
-                      <span>Lớp học</span>
-                    </label>
+              {/* 2. Phân môn (Dành cho GVCN) */}
+              <div className="p-3 bg-teal-50/60 rounded-2xl border border-teal-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-teal-700" />
+                    <span>Phân môn (Dành cho GVCN)</span>
+                  </label>
+                  <span className="text-[10px] text-teal-800 font-bold">
+                    Khối {inputGrade} • {inputSubject}
+                  </span>
+                </div>
+
+                <input
+                  type="text"
+                  value={inputSubSubject}
+                  onChange={(e) => setInputSubSubject(e.target.value)}
+                  placeholder="Nhập phân môn (ví dụ: Tập đọc, LTVC, Tập làm văn, Lịch sử...)"
+                  className="w-full px-3 py-1.5 rounded-xl border border-teal-300 text-xs font-bold text-slate-800 bg-white"
+                />
+
+                {availableSubSubjects.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                    <span className="text-[10px] font-medium text-slate-500 mr-1">Gợi ý:</span>
+                    {availableSubSubjects.map((sub) => {
+                      const isSel = inputSubSubject === sub;
+                      return (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() => setInputSubSubject(sub)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            isSel
+                              ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                              : 'bg-white hover:bg-teal-100 text-slate-700 border-teal-200'
+                          }`}
+                        >
+                          {sub}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Lớp học & Khối lớp */}
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-teal-600" />
+                    <span>Lớp học</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-200">
+                      {inputGrade > 0 ? `Khối ${inputGrade}` : 'Tập thể'}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setShowClassConfigModal(true)}
-                      className="inline-flex items-center gap-1 text-[10px] font-black text-teal-700 hover:text-teal-900 bg-teal-100/70 hover:bg-teal-100 px-2 py-0.5 rounded-md border border-teal-200 transition-colors cursor-pointer"
-                      title="Quản lý danh sách lớp giảng dạy"
+                      className="text-[10px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
                     >
-                      <Settings className="w-3 h-3 text-teal-600" />
-                      <span>⚙️ Cấu hình lớp</span>
+                      Cấu hình
                     </button>
                   </div>
-
-                  {/* Dropdown chọn lớp học */}
-                  <select
-                    value={
-                      isCustomClass || !configuredClasses.some((c) => c.name === inputClass)
-                        ? 'custom'
-                        : inputClass
-                    }
-                    onChange={(e) => handleSelectClass(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-400 bg-white shadow-2xs"
-                  >
-                    {groupedClasses.map((grp) => (
-                      <optgroup key={grp.label} label={grp.label}>
-                        {grp.classes.map((cls) => (
-                          <option key={cls.id} value={cls.name}>
-                            Lớp {cls.name} {cls.grade > 0 ? `(Khối ${cls.grade})` : '(Đặc biệt)'}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                    <option value="custom">✏️ Lớp học khác (Tự nhập tên)...</option>
-                  </select>
-
-                  {/* Ô nhập tùy chỉnh nếu chọn khác hoặc lớp không có trong danh mục */}
-                  {(isCustomClass || !configuredClasses.some((c) => c.name === inputClass)) && (
-                    <div className="mt-2">
-                      <input
-                        type="text"
-                        value={inputClass}
-                        onChange={(e) => handleClassChange(e.target.value)}
-                        placeholder="Nhập tên lớp..."
-                        className="w-full px-3 py-2 rounded-xl border border-teal-400 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-teal-50/40"
-                        autoFocus
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {/* Thẻ chọn nhanh 1-chạm (Quick Chips) - bấm là chọn ngay không cần gõ */}
-                  <div className="mt-2">
-                    <p className="text-[10px] text-slate-500 font-semibold mb-1">
-                      Bấm chọn nhanh lớp đã cấu hình:
-                    </p>
-                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
-                      {configuredClasses.map((cls) => {
-                        const isSelected = inputClass === cls.name && !isCustomClass;
-                        return (
-                          <button
-                            key={cls.id}
-                            type="button"
-                            onClick={() => handleSelectClass(cls.name)}
-                            className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
-                                : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200'
-                            }`}
-                          >
-                            {cls.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
 
-                {/* Khối lớp */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-700">
-                      Khối lớp (tự động theo lớp đã chọn)
-                    </label>
-                    <span className="text-[10px] text-slate-500 font-semibold">
-                      {inputGrade > 0 ? `Khối ${inputGrade}` : 'Chung / Đặc biệt'}
-                    </span>
+                <select
+                  value={
+                    isCustomClass || !configuredClasses.some((c) => c.name === inputClass)
+                      ? 'custom'
+                      : inputClass
+                  }
+                  onChange={(e) => handleSelectClass(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-400 bg-white shadow-2xs"
+                >
+                  {groupedClasses.map((grp) => (
+                    <optgroup key={grp.label} label={grp.label}>
+                      {grp.classes.map((cls) => (
+                        <option key={cls.id} value={cls.name}>
+                          Lớp {cls.name} {cls.grade > 0 ? `(Khối ${cls.grade})` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  <option value="custom">✏️ Lớp khác (Tự nhập tên)...</option>
+                </select>
+
+                {(isCustomClass || !configuredClasses.some((c) => c.name === inputClass)) && (
+                  <input
+                    type="text"
+                    value={inputClass}
+                    onChange={(e) => handleClassChange(e.target.value)}
+                    placeholder="Nhập tên lớp..."
+                    className="w-full px-3 py-2 rounded-xl border border-teal-400 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-teal-50/40"
+                    autoFocus
+                    required
+                  />
+                )}
+
+                {/* Chọn nhanh lớp */}
+                {configuredClasses.length > 0 && (
+                  <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
+                    {configuredClasses.map((cls) => {
+                      const isSelected = inputClass === cls.name && !isCustomClass;
+                      return (
+                        <button
+                          key={cls.id}
+                          type="button"
+                          onClick={() => handleSelectClass(cls.name)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                              : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {cls.name}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <select
-                    value={isNaN(inputGrade) ? 0 : inputGrade}
-                    onChange={(e) => setInputGrade(parseInt(e.target.value, 10) || 0)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-400 bg-white"
-                  >
-                    <option value={0}>0 - Chung / Đặc biệt (Chào cờ, SHL...)</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((g) => (
-                      <option key={g} value={g}>
-                        Khối {g} (Lớp {g})
-                      </option>
-                    ))}
-                  </select>
-                  {/* Phím bấm chọn khối nhanh */}
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((grd) => (
-                      <button
-                        key={grd}
-                        type="button"
-                        onClick={() => setInputGrade(grd)}
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold border text-center cursor-pointer transition-all ${
-                          inputGrade === grd
-                            ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {grd === 0 ? 'ĐB' : `K${grd}`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
 
-              <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={handleClearSlot}
-                  className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Xóa tiết</span>
-                </button>
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                {getSlot(selectedSlot.day, selectedSlot.session, selectedSlot.period) ? (
+                  <button
+                    type="button"
+                    onClick={handleClearSlot}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa tiết</span>
+                  </button>
+                ) : (
+                  <div></div>
+                )}
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedSlot(null)}
-                    className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 cursor-pointer"
+                    className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                   >
                     Hủy
                   </button>
+
                   <button
                     type="submit"
-                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-black bg-teal-600 hover:bg-teal-700 text-white shadow-md cursor-pointer"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-teal-700 hover:bg-teal-800 text-white shadow-md transition-all cursor-pointer"
                   >
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-4 h-4" />
                     <span>Lưu tiết</span>
                   </button>
                 </div>

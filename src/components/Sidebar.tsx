@@ -234,7 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </button>
 
-            {/* 2. Thư mục KHDH xếp theo HÀNG DỌC ngay bên dưới (không thêm bất kỳ gì vào KHDH) */}
+            {/* 2. Thư mục KHDH / Báo giảng xếp theo HÀNG DỌC ngay bên dưới */}
             <button
               type="button"
               onClick={handleSelectKhdhFolder}
@@ -250,7 +250,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     activeFolder === 'khdh' ? 'text-white' : 'text-slate-500'
                   }`}
                 />
-                <span className="text-[13px] tracking-tight truncate">KHDH</span>
+                <span className="text-[13px] tracking-tight truncate">
+                  {currentUser?.teacherType === 'GVBM' ? 'Kế hoạch dạy học (GVBM)' : 'Lịch báo giảng (GVCN)'}
+                </span>
               </div>
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
@@ -259,7 +261,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     : 'bg-slate-100 text-slate-500'
                 }`}
               >
-                {khdhItems.length} mục
+                {currentUser?.teacherType === 'GVBM' ? 'GVBM' : 'GVCN'}
               </span>
             </button>
           </div>

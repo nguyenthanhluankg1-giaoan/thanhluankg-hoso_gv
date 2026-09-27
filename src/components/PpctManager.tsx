@@ -13,25 +13,31 @@ import {
   BookOpen,
   AlertTriangle,
   FileSpreadsheet,
-  FileDown
+  FileDown,
+  Layers
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PpctItem } from '../types';
 import { defaultPpctList } from '../data/defaultData';
+import { getSubSubjectsByGradeAndSubject } from '../utils/curriculum';
 
 interface PpctManagerProps {
   ppctList: PpctItem[];
   onUpdatePpctList: (list: PpctItem[]) => void;
   onResetPpctList: () => void;
+  teacherType?: 'GVCN' | 'GVBM';
 }
 
 export const PpctManager: React.FC<PpctManagerProps> = ({
   ppctList,
   onUpdatePpctList,
-  onResetPpctList
+  onResetPpctList,
+  teacherType = 'GVCN'
 }) => {
+  const isGvcn = teacherType === 'GVCN';
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedSubSubject, setSelectedSubSubject] = useState<string>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [isAddingOrEditing, setIsAddingOrEditing] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<PpctItem | null>(null);
@@ -39,12 +45,29 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
 
   // Form state for add/edit
   const [formGrade, setFormGrade] = useState<number>(3);
-  const [formSubject, setFormSubject] = useState<string>('Tin học');
+  const [formSubject, setFormSubject] = useState<string>('Tiếng Việt');
+  const [formSubSubject, setFormSubSubject] = useState<string>('Đọc (Tập đọc)');
   const [formWeek, setFormWeek] = useState<number>(1);
   const [formPeriodIndex, setFormPeriodIndex] = useState<number>(1);
   const [formLessonName, setFormLessonName] = useState<string>('');
   const [formIntegrationNote, setFormIntegrationNote] = useState<string>('');
   const [formNotes, setFormNotes] = useState<string>('');
+
+  // Dynamically compute sub-subjects based on grade and subject
+  const availableSubSubjects = useMemo(() => {
+    return getSubSubjectsByGradeAndSubject(formGrade, formSubject);
+  }, [formGrade, formSubject]);
+
+  const availableFilterSubSubjects = useMemo(() => {
+    if (selectedSubject === 'all') {
+      const set = new Set<string>();
+      ppctList.forEach((item) => {
+        if (item.subSubject) set.add(item.subSubject);
+      });
+      return Array.from(set).sort();
+    }
+    return getSubSubjectsByGradeAndSubject(selectedGrade !== 'all' ? Number(selectedGrade) : 3, selectedSubject);
+  }, [ppctList, selectedGrade, selectedSubject]);
 
   const grades = useMemo(() => {
     const set = new Set<string>();
@@ -63,23 +86,29 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
     return ppctList.filter((item) => {
       const matchGrade = selectedGrade === 'all' || String(item.grade) === selectedGrade;
       const matchSubject = selectedSubject === 'all' || item.subject === selectedSubject;
+      const matchSubSubject = selectedSubSubject === 'all' || item.subSubject === selectedSubSubject;
       const matchKeyword =
         !searchKeyword ||
         item.lessonName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        (item.subSubject && item.subSubject.toLowerCase().includes(searchKeyword.toLowerCase())) ||
         (item.integrationNote && item.integrationNote.toLowerCase().includes(searchKeyword.toLowerCase())) ||
         (item.notes && item.notes.toLowerCase().includes(searchKeyword.toLowerCase()));
-      return matchGrade && matchSubject && matchKeyword;
+      return matchGrade && matchSubject && matchSubSubject && matchKeyword;
     }).sort((a, b) => {
       if (Number(a.grade) !== Number(b.grade)) return Number(a.grade) - Number(b.grade);
       if (a.week !== b.week) return a.week - b.week;
       return a.periodIndex - b.periodIndex;
     });
-  }, [ppctList, selectedGrade, selectedSubject, searchKeyword]);
+  }, [ppctList, selectedGrade, selectedSubject, selectedSubSubject, searchKeyword]);
 
   const handleOpenAddModal = () => {
     setEditingItem(null);
-    setFormGrade(selectedGrade !== 'all' ? Number(selectedGrade) : 3);
-    setFormSubject(selectedSubject !== 'all' ? selectedSubject : 'Tin học');
+    const gr = selectedGrade !== 'all' ? Number(selectedGrade) : 3;
+    const sj = selectedSubject !== 'all' ? selectedSubject : 'Tiếng Việt';
+    setFormGrade(gr);
+    setFormSubject(sj);
+    const subs = getSubSubjectsByGradeAndSubject(gr, sj);
+    setFormSubSubject(subs[0] || '');
     setFormWeek(1);
     setFormPeriodIndex(1);
     setFormLessonName('');
@@ -92,6 +121,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
     setEditingItem(item);
     setFormGrade(Number(item.grade));
     setFormSubject(item.subject);
+    setFormSubSubject(item.subSubject || '');
     setFormWeek(item.week);
     setFormPeriodIndex(item.periodIndex);
     setFormLessonName(item.lessonName);
@@ -112,6 +142,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
               ...item,
               grade: formGrade,
               subject: formSubject,
+              subSubject: formSubSubject.trim(),
               week: formWeek,
               periodIndex: formPeriodIndex,
               lessonName: formLessonName,
@@ -127,6 +158,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
         id: `ppct-${Date.now()}`,
         grade: formGrade,
         subject: formSubject,
+        subSubject: formSubSubject.trim(),
         week: formWeek,
         periodIndex: formPeriodIndex,
         lessonName: formLessonName,
@@ -161,52 +193,46 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
       {
         'STT': 1,
         'Khối lớp': 3,
-        'Môn học': 'Tin học',
+        'Môn học': 'Tiếng Việt',
+        'Phân môn': 'Đọc (Tập đọc)',
         'Tuần': 1,
         'Tiết theo PPCT': 1,
-        'Tên bài dạy': 'Bài 1. Thông tin và quyết định (Tiết 1)',
-        'Nội dung tích hợp / Điều chỉnh': '[1.3.CB1a] Truy cập và khai thác thông tin số',
-        'Ghi chú': 'Chủ đề 1. Máy tính và em'
+        'Tên bài dạy': 'Bài 1. Mùa thu của em (Tiết 1 - Đọc)',
+        'Nội dung tích hợp / Điều chỉnh': '[NLS] Đọc diễn cảm bài thơ mùa thu',
+        'Ghi chú': 'Chủ đề 1. Cổng trường mở ra'
       },
       {
         'STT': 2,
         'Khối lớp': 3,
-        'Môn học': 'Tin học',
+        'Môn học': 'Tiếng Việt',
+        'Phân môn': 'Luyện từ và câu (LTVC)',
         'Tuần': 1,
         'Tiết theo PPCT': 2,
-        'Tên bài dạy': 'Bài 1. Thông tin và quyết định (Tiết 2)',
-        'Nội dung tích hợp / Điều chỉnh': '[STEM] Thực hành phân loại thông tin',
-        'Ghi chú': 'Luyện tập & Vận dụng'
+        'Tên bài dạy': 'Bài 1. Mùa thu của em (Tiết 2 - LTVC: Từ ngữ chỉ sự vật)',
+        'Nội dung tích hợp / Điều chỉnh': 'Thực hành mở rộng vốn từ',
+        'Ghi chú': 'Luyện tập'
       },
       {
         'STT': 3,
-        'Khối lớp': 3,
-        'Môn học': 'Tin học',
-        'Tuần': 2,
-        'Tiết theo PPCT': 3,
-        'Tên bài dạy': 'Bài 2. Xử lí thông tin (Tiết 1)',
-        'Nội dung tích hợp / Điều chỉnh': '[CĐS] An toàn và văn hóa trên môi trường số',
-        'Ghi chú': 'Khám phá kiến thức'
+        'Khối lớp': 4,
+        'Môn học': 'Lịch sử và Địa lí',
+        'Phân môn': 'Lịch sử',
+        'Tuần': 1,
+        'Tiết theo PPCT': 1,
+        'Tên bài dạy': 'Bài 1. Làm quen với phương tiện học tập môn Lịch sử và Địa lí',
+        'Nội dung tích hợp / Điều chỉnh': '[CĐS] Khai thác bản đồ số',
+        'Ghi chú': 'Tiết 1 Lịch sử'
       },
       {
         'STT': 4,
-        'Khối lớp': 4,
-        'Môn học': 'Tin học',
-        'Tuần': 1,
-        'Tiết theo PPCT': 1,
-        'Tên bài dạy': 'Bài 1. Phần cứng và phần mềm máy tính',
-        'Nội dung tích hợp / Điều chỉnh': '[NLS] Khai thác phần mềm học tập an toàn',
-        'Ghi chú': 'Chương trình GDPT 2018'
-      },
-      {
-        'STT': 5,
         'Khối lớp': 5,
-        'Môn học': 'Tin học',
+        'Môn học': 'Lịch sử và Địa lí',
+        'Phân môn': 'Địa lí',
         'Tuần': 1,
         'Tiết theo PPCT': 1,
-        'Tên bài dạy': 'Bài 1. Máy tính và sự phát triển của thông tin',
-        'Nội dung tích hợp / Điều chỉnh': '[STEM] Tìm hiểu lịch sử máy tính',
-        'Ghi chú': 'Bài học mở đầu'
+        'Tên bài dạy': 'Bài 1. Vị trí địa lí, lãnh thổ, biển đảo Việt Nam',
+        'Nội dung tích hợp / Điều chỉnh': '[GDQP] Giáo dục chủ quyền biển đảo',
+        'Ghi chú': 'Tiết 1 Địa lí'
       }
     ];
 
@@ -214,7 +240,8 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
     worksheet['!cols'] = [
       { wch: 6 },
       { wch: 10 },
-      { wch: 14 },
+      { wch: 18 },
+      { wch: 22 },
       { wch: 8 },
       { wch: 16 },
       { wch: 45 },
@@ -232,6 +259,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
       STT: idx + 1,
       'Khối lớp': item.grade,
       'Môn học': item.subject,
+      'Phân môn': item.subSubject || '',
       Tuần: item.week,
       'Tiết theo PPCT': item.periodIndex,
       'Tên bài dạy': item.lessonName,
@@ -266,7 +294,8 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
         const newItems: PpctItem[] = rows.map((r, i) => ({
           id: `ppct-import-${Date.now()}-${i}`,
           grade: r['Khối lớp'] || r['Khoi'] || r['Grade'] || 3,
-          subject: r['Môn học'] || r['Mon'] || r['Subject'] || 'Tin học',
+          subject: r['Môn học'] || r['Mon'] || r['Subject'] || 'Tiếng Việt',
+          subSubject: (r['Phân môn'] || r['Phân Môn'] || r['SubSubject'] || '').toString().trim(),
           week: Number(r['Tuần'] || r['Tuan'] || r['Week'] || 1),
           periodIndex: Number(r['Tiết theo PPCT'] || r['Tiet'] || r['Period'] || i + 1),
           lessonName: r['Tên bài dạy'] || r['BaiDay'] || r['Lesson'] || `Bài học ${i + 1}`,
@@ -291,15 +320,24 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
       <div className="bg-white/95 backdrop-blur-md rounded-3xl p-5 border-2 border-teal-200/80 shadow-lg shadow-teal-900/5 space-y-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center shadow-xs">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-800">
-                Phân Phối Chương Trình (PPCT)
-              </h2>
-              <p className="text-xs text-slate-500 font-semibold">
-                Quản lý tiến trình bài dạy, tuần học, số tiết và nội dung tích hợp
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-black text-slate-800">
+                  {isGvcn ? 'Phân Phối Chương Trình Lớp Chủ Nhiệm' : 'Phân Phối Chương Trình Giảng Dạy'}
+                </h2>
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                  isGvcn ? 'bg-teal-100 text-teal-900 border-teal-300' : 'bg-indigo-100 text-indigo-900 border-indigo-300'
+                }`}>
+                  {isGvcn ? 'DÀNH CHO GVCN' : 'DÀNH CHO GVBM'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                {isGvcn
+                  ? 'Quản lý danh mục bài dạy, phân môn (Đọc, LTVC, Tập làm văn, Lịch sử, Địa lí...) & tích hợp của Giáo viên chủ nhiệm.'
+                  : 'Quản lý tiến trình bài dạy, tuần học, số tiết và nội dung tích hợp của Giáo viên bộ môn.'}
               </p>
             </div>
           </div>
@@ -377,48 +415,116 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm bài dạy, tích hợp..."
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
-            />
+        <div className="space-y-3 pt-3 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Tìm bài dạy, phân môn, tích hợp..."
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+              <select
+                value={selectedGrade}
+                onChange={(e) => {
+                  setSelectedGrade(e.target.value);
+                  setSelectedSubSubject('all');
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-teal-500"
+              >
+                <option value="all">Tất cả khối lớp</option>
+                {grades.map((g) => (
+                  <option key={g} value={g}>
+                    Khối {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={selectedSubject}
+                onChange={(e) => {
+                  setSelectedSubject(e.target.value);
+                  setSelectedSubSubject('all');
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-teal-500"
+              >
+                <option value="all">Tất cả môn học</option>
+                {subjects.map((s) => (
+                  <option key={s} value={s}>
+                    Môn {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={selectedSubSubject}
+                onChange={(e) => setSelectedSubSubject(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-teal-300 text-xs font-bold text-teal-900 bg-teal-50/60 focus:outline-none focus:border-teal-500"
+              >
+                <option value="all">Tất cả phân môn (GVCN)</option>
+                {availableFilterSubSubjects.map((sub) => (
+                  <option key={sub} value={sub}>
+                    Phân môn: {sub}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-            <select
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-teal-500"
-            >
-              <option value="all">Tất cả khối lớp</option>
-              {grades.map((g) => (
-                <option key={g} value={g}>
-                  Khối {g}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Quick Sub-subject Filter Chips for GVCN */}
+          {availableFilterSubSubjects.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              <span className="text-[10px] font-black text-teal-800 uppercase tracking-tight flex items-center gap-1">
+                <Layers className="w-3 h-3 text-teal-600" />
+                <span>Lọc Phân môn GVCN:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedSubSubject('all')}
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer ${
+                  selectedSubSubject === 'all'
+                    ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                    : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200'
+                }`}
+              >
+                Tất cả ({filteredList.length})
+              </button>
+              {availableFilterSubSubjects.map((sub) => {
+                const isSel = selectedSubSubject === sub;
+                const count = ppctList.filter(
+                  (item) =>
+                    (selectedGrade === 'all' || String(item.grade) === selectedGrade) &&
+                    (selectedSubject === 'all' || item.subject === selectedSubject) &&
+                    item.subSubject === sub
+                ).length;
 
-          <div>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-teal-500"
-            >
-              <option value="all">Tất cả môn học</option>
-              {subjects.map((s) => (
-                <option key={s} value={s}>
-                  Môn {s}
-                </option>
-              ))}
-            </select>
-          </div>
+                return (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => setSelectedSubSubject(sub)}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer ${
+                      isSel
+                        ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                        : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {sub} {count > 0 ? `(${count})` : ''}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -429,7 +535,8 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
             <thead>
               <tr className="bg-teal-50/90 text-slate-800 border-b-2 border-teal-200 font-black text-center">
                 <th className="py-3 px-3 w-16">KHỐI</th>
-                <th className="py-3 px-3 w-28">MÔN</th>
+                <th className="py-3 px-3 w-28">MÔN HỌC</th>
+                <th className="py-3 px-3 w-36">PHÂN MÔN (GVCN)</th>
                 <th className="py-3 px-2 w-16">TUẦN</th>
                 <th className="py-3 px-2 w-16">TIẾT</th>
                 <th className="py-3 px-4 text-left">TÊN BÀI DẠY</th>
@@ -441,7 +548,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {ppctList.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 px-4 text-center">
+                  <td colSpan={9} className="py-12 px-4 text-center">
                     <div className="max-w-md mx-auto space-y-3">
                       <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 mx-auto flex items-center justify-center border border-rose-100 shadow-xs">
                         <Trash2 className="w-6 h-6" />
@@ -489,7 +596,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                 </tr>
               ) : filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     Không tìm thấy bài dạy nào phù hợp với bộ lọc.
                   </td>
                 </tr>
@@ -499,8 +606,17 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                     <td className="py-3 px-3 text-center font-bold text-teal-800">
                       Khối {item.grade}
                     </td>
-                    <td className="py-3 px-3 text-center font-semibold">
+                    <td className="py-3 px-3 text-center font-bold text-slate-800">
                       {item.subject}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {item.subSubject ? (
+                        <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-300 inline-block shadow-2xs">
+                          {item.subSubject}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-2 text-center font-bold text-slate-600">
                       T{item.week}
@@ -574,27 +690,105 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                   <label className="block text-xs font-bold text-slate-600 mb-1">
                     Khối lớp
                   </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={isNaN(formGrade) ? '' : formGrade}
-                    onChange={(e) => setFormGrade(parseInt(e.target.value, 10) || 1)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"
-                    required
-                  />
+                  <select
+                    value={isNaN(formGrade) ? 3 : formGrade}
+                    onChange={(e) => {
+                      const newG = parseInt(e.target.value, 10) || 3;
+                      setFormGrade(newG);
+                      const subs = getSubSubjectsByGradeAndSubject(newG, formSubject);
+                      if (subs.length > 0) setFormSubSubject(subs[0]);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                  >
+                    {[1, 2, 3, 4, 5].map((g) => (
+                      <option key={g} value={g}>
+                        Khối {g} (Tiểu học)
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">
                     Môn học
                   </label>
+                  <select
+                    value={formSubject}
+                    onChange={(e) => {
+                      const newS = e.target.value;
+                      setFormSubject(newS);
+                      const subs = getSubSubjectsByGradeAndSubject(formGrade, newS);
+                      setFormSubSubject(subs[0] || '');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                  >
+                    {[
+                      'Tiếng Việt',
+                      'Toán',
+                      'Tự nhiên và Xã hội',
+                      'Khoa học',
+                      'Lịch sử và Địa lí',
+                      'Đạo đức',
+                      'Tiếng Anh',
+                      'Tin học và Công nghệ',
+                      'Nghệ thuật',
+                      'Giáo dục thể chất',
+                      'Hoạt động trải nghiệm'
+                    ].map((subj) => (
+                      <option key={subj} value={subj}>
+                        Môn {subj}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Phân môn selector based on Grade & Subject */}
+              <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Phân môn (Dành cho GVCN)</span>
+                  </label>
+                  <span className="text-[10px] text-teal-700 font-bold">
+                    Khối {formGrade} • Môn {formSubject}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
                   <input
                     type="text"
-                    value={formSubject}
-                    onChange={(e) => setFormSubject(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"
-                    required
+                    value={formSubSubject}
+                    onChange={(e) => setFormSubSubject(e.target.value)}
+                    placeholder="Chọn hoặc nhập tên phân môn (ví dụ: Tập đọc, LTVC, Tập làm văn, Lịch sử...)"
+                    className="w-full px-3 py-2 rounded-xl border border-teal-300 text-xs font-bold text-slate-800 bg-white"
                   />
+
+                  {availableSubSubjects.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-slate-500 mb-1">
+                        Bấm chọn phân môn tương ứng của Khối {formGrade}:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableSubSubjects.map((sub) => {
+                          const isSel = formSubSubject === sub;
+                          return (
+                            <button
+                              key={sub}
+                              type="button"
+                              onClick={() => setFormSubSubject(sub)}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                isSel
+                                  ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                                  : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {sub}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

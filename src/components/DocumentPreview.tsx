@@ -26,6 +26,7 @@ interface DocumentPreviewProps {
   onSaveWeekRows: (weekNumber: number, rows: LessonPlanRow[]) => void;
   onResetWeekRows: (weekNumber: number) => void;
   onUpdateConfig?: (config: SchoolConfig) => void;
+  teacherType?: 'GVCN' | 'GVBM';
 }
 
 export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
@@ -35,13 +36,21 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   customizedWeeks,
   onSaveWeekRows,
   onResetWeekRows,
-  onUpdateConfig
+  onUpdateConfig,
+  teacherType = 'GVCN'
 }) => {
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [displayFontSize, setDisplayFontSize] = useState<number>(12); // Default font size 12
   const [editingRow, setEditingRow] = useState<LessonPlanRow | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
   const [isWeekDateModalOpen, setIsWeekDateModalOpen] = useState<boolean>(false);
   const [overrideDateInput, setOverrideDateInput] = useState<string>('');
 
@@ -130,45 +139,88 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       return 0;
     };
 
+    // Helper kiểm tra khớp mờ Phân môn
+    const isSubMatch = (pSub?: string, slotSub?: string): boolean => {
+      if (!pSub && !slotSub) return true;
+      if (!pSub || !slotSub) return true;
+      const a = pSub.trim().toLowerCase();
+      const b = slotSub.trim().toLowerCase();
+      if (a === b) return true;
+      if (a.includes(b) || b.includes(a)) return true;
+
+      // Key aliases
+      if ((a.includes('đọc') || a.includes('tập đọc')) && (b.includes('đọc') || b.includes('tập đọc'))) return true;
+      if ((a.includes('ltvc') || a.includes('từ và câu')) && (b.includes('ltvc') || b.includes('từ và câu'))) return true;
+      if ((a.includes('viết') || a.includes('tập làm văn') || a.includes('chính tả')) && (b.includes('viết') || b.includes('tập làm văn') || b.includes('chính tả'))) return true;
+      if ((a.includes('nói') || a.includes('nghe')) && (b.includes('nói') || b.includes('nghe'))) return true;
+      if (a.includes('lịch sử') && b.includes('lịch sử')) return true;
+      if (a.includes('địa lí') && b.includes('địa lí')) return true;
+      if (a.includes('âm nhạc') && b.includes('âm nhạc')) return true;
+      if (a.includes('mĩ thuật') && b.includes('mĩ thuật')) return true;
+      if (a.includes('chào cờ') && b.includes('chào cờ')) return true;
+      if (a.includes('sinh hoạt lớp') && b.includes('sinh hoạt lớp')) return true;
+      if (a.includes('chủ đề') && b.includes('chủ đề')) return true;
+
+      return false;
+    };
+
+    // Helper kiểm tra khớp Tên môn học
+    const isSubjectMatch = (pSubj: string, slotSubj: string): boolean => {
+      const a = pSubj.trim().toLowerCase();
+      const b = slotSubj.trim().toLowerCase();
+      if (a === b) return true;
+      if (a.includes(b) || b.includes(a)) return true;
+      if ((a.includes('tiếng việt') || a.includes('tv')) && (b.includes('tiếng việt') || b.includes('tv'))) return true;
+      if ((a.includes('lịch sử') || a.includes('địa lí')) && (b.includes('lịch sử') || b.includes('địa lí'))) return true;
+      if ((a.includes('trải nghiệm') || a.includes('hđtn')) && (b.includes('trải nghiệm') || b.includes('hđtn'))) return true;
+      if ((a.includes('tự nhiên') || a.includes('tnxh')) && (b.includes('tự nhiên') || b.includes('tnxh'))) return true;
+      return false;
+    };
+
     // Theo dõi số tiết đã dạy của từng khối/môn trong tuần
     const subjectOccurrences: Record<string, number> = {};
 
     return sortedSlots.map((slot, index) => {
       const classGrade = detectGrade(slot.grade, slot.className);
-      const cleanSlotSubj = (slot.subject || '').trim().toLowerCase();
-      const key = `${classGrade}_${cleanSlotSubj}`;
+      const cleanSlotSubj = (slot.subject || '').trim();
+      const cleanSlotSubSubject = (slot.subSubject || '').trim();
+      const key = `${classGrade}_${cleanSlotSubj.toLowerCase()}_${cleanSlotSubSubject.toLowerCase()}`;
       const count = (subjectOccurrences[key] || 0) + 1;
       subjectOccurrences[key] = count;
 
-      // Tự động nhận dạng bài dạy từ PPCT theo Khối, Môn, Tuần và Thứ tự tiết trong tuần:
-      // 1. Khớp chính xác: Khối lớp + Tên Môn + Tuần + Thứ tự tiết trong tuần
-      let matchingPpct = ppctList.find(
+      // 1. Lọc tất cả bài dạy PPCT cho tuần hiện tại
+      const ppctForWeek = ppctList.filter((p) => Number(p.week) === currentWeek);
+
+      // 2. Lọc theo Khối (nếu có khối)
+      const ppctGradeAndWeek = classGrade > 0
+        ? ppctForWeek.filter((p) => Number(p.grade) === classGrade)
+        : ppctForWeek;
+
+      // 3. Tìm bài dạy khớp Tên môn & Phân môn
+      let matchingPpctList = (ppctGradeAndWeek.length > 0 ? ppctGradeAndWeek : ppctForWeek).filter(
         (p) =>
-          Number(p.grade) === classGrade &&
-          p.subject.trim().toLowerCase() === cleanSlotSubj &&
-          Number(p.week) === currentWeek &&
-          Number(p.periodIndex) === count
+          isSubjectMatch(p.subject, cleanSlotSubj) &&
+          isSubMatch(p.subSubject, cleanSlotSubSubject)
       );
 
-      // 2. Nếu không có count chính xác, khớp theo Khối + Môn + Tuần
-      if (!matchingPpct) {
-        const matchesForWeek = ppctList.filter(
-          (p) =>
-            Number(p.grade) === classGrade &&
-            p.subject.trim().toLowerCase() === cleanSlotSubj &&
-            Number(p.week) === currentWeek
+      // 4. Nếu chưa tìm thấy, nới lỏng tìm theo Tên môn
+      if (matchingPpctList.length === 0) {
+        matchingPpctList = (ppctGradeAndWeek.length > 0 ? ppctGradeAndWeek : ppctForWeek).filter(
+          (p) => isSubjectMatch(p.subject, cleanSlotSubj)
         );
-        if (matchesForWeek.length > 0) {
-          matchingPpct = matchesForWeek[count - 1] || matchesForWeek[0];
-        }
       }
 
-      // 3. Khớp mờ theo Tên môn học (VD: "Tin học" & "Tin học - Công nghệ")
+      // 5. Chọn tiết thứ `count` trong danh sách các bài dạy phù hợp
+      let matchingPpct = matchingPpctList.find((p) => Number(p.periodIndex) === count)
+        || matchingPpctList[count - 1]
+        || matchingPpctList[0];
+
+      // 6. Nếu vẫn chưa có, khớp mờ trên toàn danh sách PPCT cho tuần này
       if (!matchingPpct && cleanSlotSubj) {
         matchingPpct = ppctList.find(
           (p) =>
-            Number(p.grade) === classGrade &&
-            (p.subject.toLowerCase().includes(cleanSlotSubj) || cleanSlotSubj.includes(p.subject.toLowerCase())) &&
+            isSubjectMatch(p.subject, cleanSlotSubj) &&
+            isSubMatch(p.subSubject, cleanSlotSubSubject) &&
             Number(p.week) === currentWeek
         );
       }
@@ -181,17 +233,21 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       );
 
       // Nhận dạng tên bài học mặc định thông minh nếu không tìm thấy trong PPCT
-      let defaultLessonName = `Bài dạy Môn ${slot.subject} (Tuần ${currentWeek})`;
-      const lowerSubj = cleanSlotSubj;
-      if (lowerSubj.includes('chào cờ')) {
+      const subSubjectLabel = slot.subSubject || matchingPpct?.subSubject || '';
+      let defaultLessonName = `Bài dạy Môn ${slot.subject}${subSubjectLabel ? ` (${subSubjectLabel})` : ''} (Tuần ${currentWeek})`;
+      const lowerSubj = cleanSlotSubj.toLowerCase();
+      if (lowerSubj.includes('chào cờ') || subSubjectLabel.toLowerCase().includes('chào cờ')) {
         defaultLessonName = 'Chào cờ đầu tuần';
-      } else if (lowerSubj.includes('sinh hoạt lớp') || lowerSubj === 'shl') {
+      } else if (lowerSubj.includes('sinh hoạt lớp') || lowerSubj === 'shl' || subSubjectLabel.toLowerCase().includes('sinh hoạt lớp')) {
         defaultLessonName = 'Sinh hoạt lớp cuối tuần';
       } else if (lowerSubj.includes('hoạt động trải nghiệm') || lowerSubj === 'hđtn') {
-        defaultLessonName = `Hoạt động trải nghiệm - Tuần ${currentWeek}`;
+        defaultLessonName = subSubjectLabel ? `HĐTN - ${subSubjectLabel} (Tuần ${currentWeek})` : `Hoạt động trải nghiệm - Tuần ${currentWeek}`;
       } else if (classGrade > 0) {
-        defaultLessonName = `Bài dạy Khối ${classGrade} (Tuần ${currentWeek})`;
+        defaultLessonName = `Bài dạy Khối ${classGrade}${subSubjectLabel ? ` - ${subSubjectLabel}` : ''} (Tuần ${currentWeek})`;
       }
+
+      // Giữ tên môn học gốc nguyên bản (ví dụ: Tiếng Việt, Toán, Lịch sử và Địa lí)
+      const pureSubject = slot.subject ? slot.subject.split(' (')[0].trim() : 'Môn học';
 
       return {
         id: `row-${currentWeek}-${slot.id || index}`,
@@ -200,7 +256,8 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         session: slot.session === 'morning' || slot.session === 'Sáng' ? 'Sáng' : 'Chiều',
         period: slot.period,
         className: slot.className,
-        subject: slot.subject,
+        subject: pureSubject,
+        subSubject: slot.subSubject || matchingPpct?.subSubject || '',
         lessonName: matchingPpct?.lessonName || defaultLessonName,
         integrationNote: matchingPpct?.integrationNote || '',
         isCustomized: false
@@ -208,12 +265,36 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
     });
   }, [timetable, ppctList, currentWeek, config.startDateWeek1]);
 
-  // Hàng hiển thị: dùng hàng đã tùy chỉnh nếu có, nếu chưa thì dùng hàng tự động sinh
+  // Hàng hiển thị: TỰ ĐỘNG ĐỒNG BỘ TRỰC TIẾP TỪ PPCT & TKB MỚI NHẤT
+  // Hệ thống tự động cập nhật tên bài dạy ngay khi TKB/PPCT thay đổi mà người dùng KHÔNG CẦN bấm nút
   const displayRows: LessonPlanRow[] = useMemo(() => {
-    if (customizedWeeks[currentWeek] && customizedWeeks[currentWeek].length > 0) {
-      return customizedWeeks[currentWeek];
+    const savedCustoms = customizedWeeks[currentWeek];
+    if (!savedCustoms || savedCustoms.length === 0) {
+      return autoGeneratedRows;
     }
-    return autoGeneratedRows;
+
+    return autoGeneratedRows.map((autoRow) => {
+      const customMatch = savedCustoms.find(
+        (c) =>
+          c.id === autoRow.id ||
+          (c.dayOfWeek === autoRow.dayOfWeek &&
+           c.session === autoRow.session &&
+           c.period === autoRow.period &&
+           c.className === autoRow.className)
+      );
+
+      if (!customMatch || !customMatch.isCustomized) {
+        return autoRow;
+      }
+
+      return {
+        ...autoRow,
+        lessonName: customMatch.lessonName || autoRow.lessonName,
+        subSubject: customMatch.subSubject || autoRow.subSubject,
+        integrationNote: customMatch.integrationNote !== undefined ? customMatch.integrationNote : autoRow.integrationNote,
+        isCustomized: true
+      };
+    });
   }, [customizedWeeks, currentWeek, autoGeneratedRows]);
 
   // Sắp xếp hàng chuẩn theo: Thứ (2 -> 7) -> Buổi (Sáng -> Chiều) -> Tiết (1 -> 5)
@@ -228,6 +309,14 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
     });
   }, [displayRows]);
 
+  const homeClassName = useMemo(() => {
+    const rowCls = sortedDisplayRows.find((r) => r.className && r.className !== 'Chào cờ' && r.className !== 'Sinh hoạt lớp')?.className;
+    if (rowCls) return rowCls;
+    const ttCls = timetable.find((s) => s.className && s.className !== 'Chào cờ' && s.className !== 'Sinh hoạt lớp')?.className;
+    if (ttCls) return ttCls;
+    return '3A1';
+  }, [sortedDisplayRows, timetable]);
+
   // Tự động điều chỉnh khoảng cách dòng (padding) để nội dung tự co giãn vừa đẹp trên trang A4
   const dynamicCellPy = useMemo(() => {
     const total = sortedDisplayRows.length;
@@ -237,7 +326,10 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
     return 'py-0.5';
   }, [sortedDisplayRows.length]);
 
-  // Tính toán gộp ô (rowSpan) cho Thứ và Buổi giống hệt mẫu đính kèm
+  // Helper lấy tên môn học chính nguyên bản
+  const getPureSubject = (s: string) => (s || '').split(' (')[0].trim();
+
+  // Tính toán gộp ô (rowSpan) cho Thứ, Buổi và Môn học chính
   const rowSpanData = useMemo(() => {
     const list = sortedDisplayRows;
     return list.map((row, idx) => {
@@ -268,10 +360,31 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         sessionSpan = count;
       }
 
+      const isFirstOfSubject =
+        isFirstOfSession ||
+        getPureSubject(row.subject) !== getPureSubject(list[idx - 1].subject);
+
+      let subjectSpan = 0;
+      if (isFirstOfSubject) {
+        let count = 0;
+        for (
+          let i = idx;
+          i < list.length &&
+          list[i].dayOfWeek === row.dayOfWeek &&
+          list[i].session === row.session &&
+          getPureSubject(list[i].subject) === getPureSubject(row.subject);
+          i++
+        ) {
+          count++;
+        }
+        subjectSpan = count;
+      }
+
       return {
         row,
         daySpan,
-        sessionSpan
+        sessionSpan,
+        subjectSpan
       };
     });
   }, [sortedDisplayRows]);
@@ -336,7 +449,8 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         currentWeek,
         weekDates.startDate,
         weekDates.endDate,
-        sortedDisplayRows
+        sortedDisplayRows,
+        teacherType
       );
       showToast(`Xuất file Word Tuần ${currentWeek} thành công!`);
     } catch (err) {
@@ -464,17 +578,13 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
             <span>Thêm dòng</span>
           </button>
 
-          {customizedWeeks[currentWeek] && (
-            <button
-              type="button"
-              onClick={handleResetToDefault}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-all cursor-pointer"
-              title="Khôi phục dữ liệu gốc theo Thời khóa biểu và PPCT"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Khôi phục gốc</span>
-            </button>
-          )}
+          <div
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs select-none"
+            title="Hệ thống tự động đồng bộ 100% thời khóa biểu & bài dạy PPCT thời gian thực"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+            <span>Tự động đồng bộ PPCT & TKB</span>
+          </div>
 
           <button
             type="button"
@@ -529,11 +639,23 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         {/* Title */}
         <div className="text-center my-5 space-y-1">
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 uppercase tracking-tight">
-            {config.documentTitle || 'KẾ HOẠCH DẠY HỌC'}
+            {teacherType === 'GVCN'
+              ? `LỊCH BÁO GIẢNG LỚP ${homeClassName.toUpperCase()}`
+              : (config.documentTitle || 'KẾ HOẠCH DẠY HỌC')}
           </h2>
-          <h3 className="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-tight">
-            {config.subjectTitle || 'MÔN: TIN HỌC - CÔNG NGHỆ'}
-          </h3>
+          {teacherType === 'GVCN' ? (
+            config.subjectTitle &&
+            config.subjectTitle !== 'DÀNH CHO GIÁO VIÊN CHỦ NHIỆM' &&
+            config.subjectTitle !== 'MÔN: TIN HỌC - CÔNG NGHỆ' ? (
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-tight">
+                {config.subjectTitle}
+              </h3>
+            ) : null
+          ) : (
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-tight">
+              {config.subjectTitle || 'MÔN: TIN HỌC - CÔNG NGHỆ'}
+            </h3>
+          )}
           <p className="text-xs sm:text-sm italic text-slate-800">
             Tuần {currentWeek} thực hiện từ ngày {weekDates.startDate} đến ngày {weekDates.endDate}
           </p>
@@ -549,11 +671,16 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
               <tr className="bg-white text-slate-900 text-center font-bold uppercase">
                 <th className={`px-2 border border-black w-24 align-middle ${dynamicCellPy}`}>THỨ</th>
                 <th className={`px-2 border border-black w-18 align-middle ${dynamicCellPy}`}>BUỔI</th>
-                <th className={`px-2 border border-black w-14 align-middle ${dynamicCellPy}`}>TIẾT</th>
-                <th className={`px-2 border border-black w-18 align-middle ${dynamicCellPy}`}>LỚP</th>
-                <th className={`px-2 border border-black w-28 align-middle ${dynamicCellPy}`}>MÔN</th>
-                <th className={`px-3 border border-black min-w-[240px] align-middle ${dynamicCellPy}`}>TÊN BÀI DẠY</th>
-                <th className={`px-2 border border-black min-w-[160px] align-middle text-center ${dynamicCellPy}`}>
+                <th className={`px-2 border border-black w-12 align-middle ${dynamicCellPy}`}>TIẾT</th>
+                {teacherType !== 'GVCN' && (
+                  <th className={`px-2 border border-black w-16 align-middle ${dynamicCellPy}`}>LỚP</th>
+                )}
+                <th className={`px-2 border border-black w-28 align-middle ${dynamicCellPy}`}>MÔN HỌC</th>
+                {teacherType === 'GVCN' && (
+                  <th className={`px-2 border border-black w-32 align-middle ${dynamicCellPy}`}>PHÂN MÔN</th>
+                )}
+                <th className={`px-3 border border-black min-w-[220px] align-middle ${dynamicCellPy}`}>TÊN BÀI DẠY</th>
+                <th className={`px-2 border border-black min-w-[150px] align-middle text-center ${dynamicCellPy}`}>
                   <div className="leading-tight">ĐIỀU CHỈNH/</div>
                   <div className="leading-tight">TÍCH HỢP</div>
                 </th>
@@ -562,7 +689,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
             </thead>
             <tbody>
               {rowSpanData.length === 0 ? (
-                // Nếu chưa có dữ liệu, hiển thị khung bảng chuẩn như mẫu đính kèm
+                // Nếu chưa có dữ liệu, hiển thị khung bảng chuẩn
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={`empty-${i}`} className="h-8">
                     {i === 0 && (
@@ -581,15 +708,16 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
                       </td>
                     )}
                     <td className="border border-black text-center text-slate-400">{(i % 3) + 1}</td>
+                    {teacherType !== 'GVCN' && <td className="border border-black"></td>}
                     <td className="border border-black"></td>
-                    <td className="border border-black"></td>
+                    {teacherType === 'GVCN' && <td className="border border-black"></td>}
                     <td className="border border-black"></td>
                     <td className="border border-black"></td>
                     <td className="border border-black print:hidden"></td>
                   </tr>
                 ))
               ) : (
-                rowSpanData.map(({ row, daySpan, sessionSpan }, idx) => (
+                rowSpanData.map(({ row, daySpan, sessionSpan, subjectSpan }, idx) => (
                   <tr key={row.id || idx} className="hover:bg-amber-50/30 transition-colors group">
                     {/* THỨ (Gom ô cho toàn bộ các tiết trong ngày) */}
                     {daySpan > 0 && (
@@ -617,15 +745,41 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
                       {row.period}
                     </td>
 
-                    {/* LỚP */}
-                    <td className={`px-2 text-center border border-black font-bold align-middle ${dynamicCellPy}`}>
-                      {row.className}
-                    </td>
+                    {/* LỚP (Chỉ hiển thị với Giáo viên bộ môn) */}
+                    {teacherType !== 'GVCN' && (
+                      <td className={`px-2 text-center border border-black font-bold align-middle ${dynamicCellPy}`}>
+                        {row.className}
+                      </td>
+                    )}
 
-                    {/* MÔN */}
-                    <td className={`px-2 text-center border border-black align-middle ${dynamicCellPy}`}>
-                      {row.subject}
-                    </td>
+                    {/* MÔN HỌC (Tự động gộp ô nếu có nhiều phân môn) */}
+                    {teacherType === 'GVCN' ? (
+                      subjectSpan > 0 && (
+                        <td
+                          rowSpan={subjectSpan}
+                          className={`px-2 text-center border border-black font-bold align-middle bg-white text-slate-900 ${dynamicCellPy}`}
+                        >
+                          {getPureSubject(row.subject)}
+                        </td>
+                      )
+                    ) : (
+                      <td className={`px-2 text-center border border-black align-middle ${dynamicCellPy}`}>
+                        {row.subject}
+                      </td>
+                    )}
+
+                    {/* PHÂN MÔN (Dành cho GVCN) */}
+                    {teacherType === 'GVCN' && (
+                      <td className={`px-2 text-center border border-black align-middle font-medium ${dynamicCellPy}`}>
+                        <input
+                          type="text"
+                          value={row.subSubject || ''}
+                          onChange={(e) => handleInlineChange(row.id, 'subSubject', e.target.value)}
+                          placeholder="-"
+                          className="w-full text-center bg-transparent hover:bg-slate-50 focus:bg-white px-1 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-teal-500 focus:outline-none transition-all font-bold text-teal-950"
+                        />
+                      </td>
+                    )}
 
                     {/* TÊN BÀI DẠY */}
                     <td className={`px-2 text-left border border-black align-middle font-medium ${dynamicCellPy}`}>

@@ -21,7 +21,8 @@ export async function exportLessonPlanToDocx(
   weekNumber: number,
   startDate: string,
   endDate: string,
-  rows: LessonPlanRow[]
+  rows: LessonPlanRow[],
+  teacherType: 'GVCN' | 'GVBM' = 'GVCN'
 ): Promise<void> {
   const borderNone = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -132,9 +133,20 @@ export async function exportLessonPlanToDocx(
   });
 
   // Main table header matching the attached PDF
-  const tableRows: TableRow[] = [
-    new TableRow({
-      children: [
+  const isGvcn = teacherType === 'GVCN';
+  const homeClassName = sortedRows.find((r) => r.className && r.className !== 'Chào cờ' && r.className !== 'Sinh hoạt lớp')?.className || '3A1';
+
+  const headerCells = isGvcn
+    ? [
+        tableHeaderCell('THỨ', 9),
+        tableHeaderCell('BUỔI', 8),
+        tableHeaderCell('TIẾT', 6),
+        tableHeaderCell('MÔN', 14),
+        tableHeaderCell('PHÂN MÔN', 15),
+        tableHeaderCell('TÊN BÀI DẠY', 28),
+        tableHeaderCell('ĐIỀU CHỈNH/\nTÍCH HỢP', 20)
+      ]
+    : [
         tableHeaderCell('THỨ', 9),
         tableHeaderCell('BUỔI', 9),
         tableHeaderCell('TIẾT', 7),
@@ -142,14 +154,19 @@ export async function exportLessonPlanToDocx(
         tableHeaderCell('MÔN', 13),
         tableHeaderCell('TÊN BÀI DẠY', 33),
         tableHeaderCell('ĐIỀU CHỈNH/\nTÍCH HỢP', 20)
-      ]
-    })
+      ];
+
+  const tableRows: TableRow[] = [
+    new TableRow({ children: headerCells })
   ];
+
+  const getPureSubject = (s: string) => (s || '').split(' (')[0].trim();
 
   // Populate data rows with vertical merges for Day and Session
   sortedRows.forEach((row, idx) => {
     const isFirstOfDay = idx === 0 || row.dayOfWeek !== sortedRows[idx - 1].dayOfWeek;
     const isFirstOfSession = isFirstOfDay || row.session !== sortedRows[idx - 1].session;
+    const isFirstOfSubject = isFirstOfSession || getPureSubject(row.subject) !== getPureSubject(sortedRows[idx - 1].subject);
 
     const dayCellChildren: Paragraph[] = [];
     if (isFirstOfDay) {
@@ -249,14 +266,37 @@ export async function exportLessonPlanToDocx(
     });
 
     const subjectCell = new TableCell({
-      width: { size: 13, type: WidthType.PERCENTAGE },
+      width: { size: isGvcn ? 14 : 13, type: WidthType.PERCENTAGE },
+      verticalAlign: VerticalAlign.CENTER,
+      verticalMerge: isGvcn
+        ? (isFirstOfSubject ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE)
+        : undefined,
+      children: (isGvcn ? isFirstOfSubject : true)
+        ? [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: getPureSubject(row.subject),
+                  bold: isGvcn,
+                  size: 24, // Cỡ chữ 12pt
+                  font: 'Times New Roman'
+                })
+              ]
+            })
+          ]
+        : [new Paragraph({ text: '' })]
+    });
+
+    const subSubjectCell = new TableCell({
+      width: { size: 15, type: WidthType.PERCENTAGE },
       verticalAlign: VerticalAlign.CENTER,
       children: [
         new Paragraph({
           alignment: AlignmentType.CENTER,
           children: [
             new TextRun({
-              text: row.subject || '',
+              text: row.subSubject || '',
               size: 24, // Cỡ chữ 12pt
               font: 'Times New Roman'
             })
@@ -281,7 +321,7 @@ export async function exportLessonPlanToDocx(
     );
 
     const lessonCell = new TableCell({
-      width: { size: 33, type: WidthType.PERCENTAGE },
+      width: { size: isGvcn ? 28 : 33, type: WidthType.PERCENTAGE },
       verticalAlign: VerticalAlign.CENTER,
       children: lessonParagraphs.length > 0 ? lessonParagraphs : [new Paragraph({ text: '' })]
     });
@@ -307,17 +347,13 @@ export async function exportLessonPlanToDocx(
       children: integrationParagraphs.length > 0 ? integrationParagraphs : [new Paragraph({ text: '' })]
     });
 
+    const rowCells = isGvcn
+      ? [dayCell, sessionCell, periodCell, subjectCell, subSubjectCell, lessonCell, integrationCell]
+      : [dayCell, sessionCell, periodCell, classCell, subjectCell, lessonCell, integrationCell];
+
     tableRows.push(
       new TableRow({
-        children: [
-          dayCell,
-          sessionCell,
-          periodCell,
-          classCell,
-          subjectCell,
-          lessonCell,
-          integrationCell
-        ]
+        children: rowCells
       })
     );
   });
@@ -439,6 +475,66 @@ export async function exportLessonPlanToDocx(
     ]
   });
 
+  const docChildren: (Paragraph | Table)[] = [
+    headerTable,
+    new Paragraph({ text: '' }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({
+          text: (
+            teacherType === 'GVCN'
+              ? `LỊCH BÁO GIẢNG LỚP ${homeClassName.toUpperCase()}`
+              : (config.documentTitle || 'KẾ HOẠCH DẠY HỌC')
+          ).toUpperCase(),
+          bold: true,
+          size: 28, // Cỡ chữ 14pt
+          font: 'Times New Roman'
+        })
+      ]
+    })
+  ];
+
+  const showSubTitle = isGvcn
+    ? Boolean(config.subjectTitle && config.subjectTitle !== 'DÀNH CHO GIÁO VIÊN CHỦ NHIỆM' && config.subjectTitle !== 'MÔN: TIN HỌC - CÔNG NGHỆ')
+    : true;
+
+  if (showSubTitle) {
+    docChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({
+            text: (isGvcn ? config.subjectTitle : (config.subjectTitle || 'MÔN: TIN HỌC - CÔNG NGHỆ')).toUpperCase(),
+            bold: true,
+            size: 26, // Cỡ chữ 13pt
+            font: 'Times New Roman'
+          })
+        ]
+      })
+    );
+  }
+
+  docChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({
+          text: `Tuần ${weekNumber} thực hiện từ ngày ${startDate} đến ngày ${endDate}`,
+          italics: true,
+          size: 26, // Cỡ chữ 13pt
+          font: 'Times New Roman'
+        })
+      ]
+    }),
+    new Paragraph({ text: '' }),
+    mainTable,
+    new Paragraph({ text: '' }),
+    footerDateParagraph,
+    new Paragraph({ text: '' }),
+    footerTable
+  );
+
   const doc = new Document({
     sections: [
       {
@@ -452,49 +548,7 @@ export async function exportLessonPlanToDocx(
             }
           }
         },
-        children: [
-          headerTable,
-          new Paragraph({ text: '' }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [
-              new TextRun({
-                text: (config.documentTitle || 'KẾ HOẠCH DẠY HỌC').toUpperCase(),
-                bold: true,
-                size: 28, // Cỡ chữ 14pt
-                font: 'Times New Roman'
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [
-              new TextRun({
-                text: (config.subjectTitle || 'MÔN: TIN HỌC - CÔNG NGHỆ').toUpperCase(),
-                bold: true,
-                size: 26, // Cỡ chữ 13pt
-                font: 'Times New Roman'
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [
-              new TextRun({
-                text: `Tuần ${weekNumber} thực hiện từ ngày ${startDate} đến ngày ${endDate}`,
-                italics: true,
-                size: 26, // Cỡ chữ 13pt
-                font: 'Times New Roman'
-              })
-            ]
-          }),
-          new Paragraph({ text: '' }),
-          mainTable,
-          new Paragraph({ text: '' }),
-          footerDateParagraph,
-          new Paragraph({ text: '' }),
-          footerTable
-        ]
+        children: docChildren
       }
     ]
   });
@@ -1103,7 +1157,7 @@ export async function exportDetailedLessonPlanToDocx(
     docChildren.push(activityTable);
     docChildren.push(new Paragraph({ text: '' }));
 
-    // IV. ĐIỀU CHỈNH SAU BÀI DẠY
+    // IV. ĐIỀU CHỈNH SAU BÀI DẠY (nếu có)
     docChildren.push(
       new Paragraph({
         children: [
@@ -1118,36 +1172,52 @@ export async function exportDetailedLessonPlanToDocx(
     );
 
     const adjustmentText = period.postLessonAdjustment?.trim() || '';
-    const adjustmentLines = adjustmentText
-      ? adjustmentText.split('\n')
-      : [
-          '....................................................................................................',
-          '....................................................................................................'
-        ];
+    const isDefaultDots = !adjustmentText || adjustmentText.includes('....') || adjustmentText.includes('...');
 
-    // Ensure at least 2 dotted lines for teacher handwriting/notes
-    const linesToPrint =
-      adjustmentLines.length === 1 && adjustmentLines[0].startsWith('....')
-        ? [
-            '....................................................................................................',
-            '....................................................................................................'
-          ]
-        : adjustmentLines;
-
-    linesToPrint.forEach((line) => {
+    if (isDefaultDots) {
+      // Dấu chấm căn đều vừa đủ hàng ngang trang giấy A4 (chuẩn 13pt Times New Roman)
+      const fullA4Dots = '...........................................................................................................................................................';
       docChildren.push(
         new Paragraph({
+          alignment: AlignmentType.JUSTIFIED,
           indent: { left: 360 },
           children: [
             new TextRun({
-              text: line || '....................................................................................................',
+              text: fullA4Dots,
+              size: 26,
+              font: 'Times New Roman'
+            })
+          ]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.JUSTIFIED,
+          indent: { left: 360 },
+          children: [
+            new TextRun({
+              text: fullA4Dots,
               size: 26,
               font: 'Times New Roman'
             })
           ]
         })
       );
-    });
+    } else {
+      adjustmentText.split('\n').forEach((line) => {
+        docChildren.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            indent: { left: 360 },
+            children: [
+              new TextRun({
+                text: line,
+                size: 26,
+                font: 'Times New Roman'
+              })
+            ]
+          })
+        );
+      });
+    }
 
     docChildren.push(new Paragraph({ text: '' }));
   }

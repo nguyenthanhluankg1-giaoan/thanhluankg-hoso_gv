@@ -72,6 +72,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     email: '',
     password: '123456',
     role: 'teacher' as 'admin' | 'teacher',
+    teacherType: 'GVCN' as 'GVCN' | 'GVBM',
     subject: 'Toán học',
     school: 'Trường TH Thạnh Yên 1',
     year: '2026 - 2027',
@@ -124,6 +125,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       email: formData.email.trim() || `${cleanUsername}@lophoc.edu.vn`,
       name: formData.name.trim(),
       role: formData.role,
+      teacherType: formData.role === 'teacher' ? formData.teacherType : 'GVCN',
       password: formData.password.trim(),
       subject: formData.subject.trim(),
       school: formData.school.trim(),
@@ -140,7 +142,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     setIsRefreshing(false);
 
     if (ok) {
-      showToast(`Tạo thành công tài khoản giáo viên "${newUser.name}" trên Database!`);
+      showToast(`Tạo thành công tài khoản giáo viên "${newUser.name}" (${newUser.teacherType === 'GVCN' ? 'GVCN' : 'GVBM'}) trên Database!`);
       setCreateModalOpen(false);
       // Reset form
       setFormData({
@@ -149,8 +151,10 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
         email: '',
         password: '123456',
         role: 'teacher',
+        teacherType: 'GVCN',
         subject: 'Toán học',
         school: 'Trường TH Thạnh Yên 1',
+        year: '2026 - 2027',
         phone: '',
         note: '',
         assignedClasses: []
@@ -465,6 +469,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                           className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
                             user.role === 'admin'
                               ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                              : user.teacherType === 'GVBM'
+                              ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                               : 'bg-teal-100 text-teal-800 border border-teal-200'
                           }`}
                         >
@@ -473,7 +479,11 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                           ) : (
                             <UserCheck className="w-3 h-3 text-teal-600" />
                           )}
-                          {user.role === 'admin' ? 'Quản Trị Viên' : 'Giáo Viên'}
+                          {user.role === 'admin'
+                            ? 'Quản Trị Viên'
+                            : user.teacherType === 'GVBM'
+                            ? 'GVBM (Giáo viên bộ môn)'
+                            : 'GVCN (Giáo viên chủ nhiệm)'}
                         </span>
 
                         {/* Status badge */}
@@ -713,18 +723,34 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Môn giảng dạy
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder="Ví dụ: Toán, Ngữ Văn, Tiếng Anh..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 text-sm font-medium outline-none"
-                  />
-                </div>
+                {formData.role === 'teacher' ? (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Chức năng Giáo viên (GVCN / GVBM) <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formData.teacherType}
+                      onChange={(e) => setFormData({ ...formData, teacherType: e.target.value as 'GVCN' | 'GVBM' })}
+                      className="w-full px-3 py-2 rounded-xl border border-teal-300 bg-teal-50/50 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 text-sm font-extrabold text-teal-900 outline-none"
+                    >
+                      <option value="GVCN">GVCN - Giáo viên chủ nhiệm (Hiện Lịch báo giảng, PPCT GVCN)</option>
+                      <option value="GVBM">GVBM - Giáo viên bộ môn (Hiện Kế hoạch dạy học, PPCT hiện tại)</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Môn giảng dạy
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      placeholder="Ví dụ: Toán, Ngữ Văn, Tiếng Anh..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 text-sm font-medium outline-none"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -857,18 +883,6 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={editUser.email}
-                    onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 text-sm font-medium outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Vai trò
                   </label>
                   <select
@@ -880,6 +894,22 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                     <option value="admin">Quản trị viên (Admin)</option>
                   </select>
                 </div>
+
+                {editUser.role === 'teacher' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Chức năng Giáo viên (GVCN / GVBM)
+                    </label>
+                    <select
+                      value={editUser.teacherType || 'GVCN'}
+                      onChange={(e) => setEditUser({ ...editUser, teacherType: e.target.value as 'GVCN' | 'GVBM' })}
+                      className="w-full px-3 py-2 rounded-xl border border-teal-300 bg-teal-50/50 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 text-sm font-extrabold text-teal-900 outline-none"
+                    >
+                      <option value="GVCN">GVCN - Giáo viên chủ nhiệm (Hiện Lịch báo giảng, PPCT GVCN)</option>
+                      <option value="GVBM">GVBM - Giáo viên bộ môn (Hiện Kế hoạch dạy học, PPCT hiện tại)</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

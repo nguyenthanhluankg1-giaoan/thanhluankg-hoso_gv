@@ -67,6 +67,78 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Section 0: Chọn Vai trò giảng dạy (GVCN hay GVBM) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 border-2 border-teal-200/90 space-y-2">
+            <h3 className="text-xs font-black text-teal-900 uppercase tracking-wider flex items-center gap-2">
+              <User className="w-4 h-4 text-teal-600" />
+              <span>Vai Trò Giảng Dạy (GVCN / Giáo Viên Bộ Môn)</span>
+            </h3>
+            <p className="text-[11px] text-teal-800 font-medium">
+              Vui lòng chọn đúng vai trò để hệ thống tự động hiển thị tiêu đề <span className="font-extrabold text-teal-900">Lịch báo giảng</span> (dành cho GVCN) hoặc <span className="font-extrabold text-teal-900">Kế hoạch dạy học</span> (dành cho GVBM) và Phân phối chương trình tương ứng:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    teacherRoleType: 'gvcn',
+                    documentTitle: 'LỊCH BÁO GIẢNG'
+                  }));
+                }}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
+                  formData.teacherRoleType === 'gvcn'
+                    ? 'bg-teal-600 text-white border-teal-700 shadow-md shadow-teal-600/25 font-black'
+                    : 'bg-white hover:bg-teal-50/70 text-slate-800 border-slate-200 font-bold'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black ${
+                  formData.teacherRoleType === 'gvcn' ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800'
+                }`}>
+                  🏫
+                </div>
+                <div>
+                  <div className="text-xs sm:text-sm font-black">Giáo viên chủ nhiệm (GVCN)</div>
+                  <div className={`text-[10px] font-semibold mt-0.5 ${
+                    formData.teacherRoleType === 'gvcn' ? 'text-teal-100' : 'text-slate-500'
+                  }`}>
+                    Hiển thị Lịch báo giảng & PPCT dành cho GVCN
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    teacherRoleType: 'gvbm',
+                    documentTitle: 'KẾ HOẠCH DẠY HỌC'
+                  }));
+                }}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
+                  formData.teacherRoleType === 'gvbm' || !formData.teacherRoleType
+                    ? 'bg-teal-600 text-white border-teal-700 shadow-md shadow-teal-600/25 font-black'
+                    : 'bg-white hover:bg-teal-50/70 text-slate-800 border-slate-200 font-bold'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black ${
+                  formData.teacherRoleType === 'gvbm' || !formData.teacherRoleType ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800'
+                }`}>
+                  📚
+                </div>
+                <div>
+                  <div className="text-xs sm:text-sm font-black">Giáo viên bộ môn (GVBM)</div>
+                  <div className={`text-[10px] font-semibold mt-0.5 ${
+                    formData.teacherRoleType === 'gvbm' || !formData.teacherRoleType ? 'text-teal-100' : 'text-slate-500'
+                  }`}>
+                    Hiển thị Kế hoạch dạy học & PPCT bộ môn
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
           {/* Section 1: Trường học & Cơ quan */}
           <div className="space-y-3">
             <h3 className="text-xs font-black text-teal-800 uppercase tracking-wider flex items-center gap-2">

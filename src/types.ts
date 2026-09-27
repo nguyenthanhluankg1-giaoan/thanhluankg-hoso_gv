@@ -4,6 +4,7 @@ export interface UserAccount {
   email: string;
   name: string; // Họ và tên
   role: 'admin' | 'teacher';
+  teacherType?: 'GVCN' | 'GVBM'; // Chức năng: Giáo viên chủ nhiệm hoặc Giáo viên bộ môn
   password: string; // Mật khẩu đăng nhập
   subject?: string; // Môn giảng dạy
   school?: string; // Trường học
@@ -42,6 +43,7 @@ export interface ClassInfo {
 export interface TeacherProfile {
   name: string;
   role: string;
+  teacherType?: 'GVCN' | 'GVBM';
   subject: string;
   school: string;
   year: string;
@@ -234,8 +236,9 @@ export const WHEEL_EFFECTS = [
 
 export interface PpctItem {
   id: string;
-  grade: number | string; // Khối lớp (3, 4, 5...)
-  subject: string; // Tên môn học (Tin học, Công nghệ...)
+  grade: number | string; // Khối lớp (1, 2, 3, 4, 5...)
+  subject: string; // Tên môn học (Tiếng Việt, Lịch sử và Địa lí...)
+  subSubject?: string; // Phân môn (Tập đọc, LTVC, Tập làm văn, Lịch sử, Địa lí...)
   week: number; // Tuần (1 -> 35)
   periodIndex: number; // Tiết theo PPCT
   lessonName: string; // Tên bài dạy
@@ -249,7 +252,8 @@ export interface TimetableSlot {
   session: 'morning' | 'afternoon' | string; // 'morning' (Sáng) hoặc 'afternoon' (Chiều)
   period: number; // Tiết 1 -> 5
   className: string; // Lớp (3A1, 4A2...)
-  subject: string; // Môn học (Tin học, Công nghệ...)
+  subject: string; // Môn học (Tiếng Việt, Toán...)
+  subSubject?: string; // Phân môn (Tập đọc, LTVC, Tập làm văn...)
   grade: number | string; // Khối lớp
 }
 
@@ -280,6 +284,7 @@ export interface LessonPlanRow {
   period: number; // 1 -> 5
   className: string;
   subject: string;
+  subSubject?: string;
   lessonName: string;
   integrationNote?: string;
   isCustomized?: boolean;

@@ -31,12 +31,21 @@ const DEFAULT_CONFIGURED_CLASSES: ConfiguredClass[] = [
 
 interface KhdhModuleProps {
   currentUser?: UserAccount | null;
+  activeClassName?: string;
 }
 
-export const KhdhModule: React.FC<KhdhModuleProps> = ({ currentUser: propCurrentUser }) => {
+export const KhdhModule: React.FC<KhdhModuleProps> = ({
+  currentUser: propCurrentUser,
+  activeClassName
+}) => {
   const activeUser = propCurrentUser || getSavedSessionUser();
   const userId = activeUser?.id || 'shared';
   const keys = getUserKhdhStorageKeys(activeUser?.id);
+
+  // Determine effective teacher type: defaults to GVCN for any non-GVBM teacher
+  const effectiveTeacherType: 'GVCN' | 'GVBM' =
+    activeUser?.teacherType === 'GVBM' ? 'GVBM' : 'GVCN';
+  const isGvcn = effectiveTeacherType === 'GVCN';
 
   // 1. School config state
   const [config, setConfig] = useState<SchoolConfig>(() => {
@@ -251,11 +260,16 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({ currentUser: propCurrent
       <Navbar
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        title={config.documentTitle || 'KẾ HOẠCH DẠY HỌC'}
+        title={
+          isGvcn
+            ? (config.documentTitle === 'KẾ HOẠCH DẠY HỌC' || !config.documentTitle ? 'LỊCH BÁO GIẢNG GVCN' : config.documentTitle)
+            : (config.documentTitle || 'KẾ HOẠCH DẠY HỌC (GVBM)')
+        }
         academicYear={config.academicYear || '2026 - 2027'}
+        teacherType={effectiveTeacherType}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-5 lg:p-6">
         {activeTab === 'document' && (
           <DocumentPreview
             config={config}
@@ -265,6 +279,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({ currentUser: propCurrent
             onSaveWeekRows={handleSaveWeekRows}
             onResetWeekRows={handleResetWeekRows}
             onUpdateConfig={setConfig}
+            teacherType={effectiveTeacherType}
           />
         )}
 
@@ -273,6 +288,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({ currentUser: propCurrent
             ppctList={ppctList}
             onUpdatePpctList={setPpctList}
             onResetPpctList={handleResetPpct}
+            teacherType={effectiveTeacherType}
           />
         )}
 
@@ -283,6 +299,8 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({ currentUser: propCurrent
             onResetTimetable={handleResetTimetable}
             configuredClasses={configuredClasses}
             onUpdateConfiguredClasses={setConfiguredClasses}
+            teacherType={effectiveTeacherType}
+            activeClassName={activeClassName || configuredClasses[0]?.name || '3A1'}
           />
         )}
 
