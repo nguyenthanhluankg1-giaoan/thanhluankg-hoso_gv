@@ -20,7 +20,12 @@ import {
   MoveRight,
   UploadCloud,
   FileText,
-  Loader2
+  Loader2,
+  Key,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  CheckCircle2
 } from 'lucide-react';
 import { QuizQuestion, QuestionFolder, DEFAULT_SUBJECTS, UploadedFileInfo } from '../../../types';
 import { DEFAULT_QUIZ_QUESTIONS } from '../../../data/defaultQuestions';
@@ -92,7 +97,16 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [aiUploadedFiles, setAiUploadedFiles] = useState<UploadedFileInfo[]>([]);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState<string>(() => {
+    return localStorage.getItem('gemini_api_key') || '';
+  });
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const aiFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleApiKeyChange = (val: string) => {
+    setCustomApiKey(val);
+    localStorage.setItem('gemini_api_key', val.trim());
+  };
 
   const handleOpenAiGenerator = () => {
     const sub = selectedSubject !== 'all' ? selectedSubject : 'Tin học';
@@ -141,7 +155,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       if (!aiTopic.trim()) {
         setIsAiAnalyzing(true);
         try {
-          const analysis = await analyzeLessonFileWithGemini(combined);
+          const analysis = await analyzeLessonFileWithGemini(combined, customApiKey.trim() || undefined);
           if (analysis && analysis.topic) {
             setAiTopic(analysis.topic);
             if (analysis.subject) setAiSubject(analysis.subject);
@@ -177,7 +191,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             subject: aiSubject,
             numQuestions: aiNumQuestions,
             folderId: aiFolderId || undefined,
-            attachedFiles: aiUploadedFiles
+            attachedFiles: aiUploadedFiles,
+            customApiKey: customApiKey.trim() || undefined
           })
         });
 
@@ -197,7 +212,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
           subject: aiSubject,
           numQuestions: aiNumQuestions,
           folderId: aiFolderId || undefined,
-          attachedFiles: aiUploadedFiles
+          attachedFiles: aiUploadedFiles,
+          apiKey: customApiKey.trim() || undefined
         });
       }
 
@@ -1329,6 +1345,56 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
             {/* Modal Form */}
             <form onSubmit={handleGenerateAiQuiz} className="space-y-4 mt-4">
+              {/* 0. API Key Input Section */}
+              <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-amber-600" />
+                    <span>Google Gemini API Key (Dán mã cá nhân):</span>
+                  </label>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-extrabold text-teal-700 hover:text-teal-900 flex items-center gap-1 cursor-pointer underline"
+                  >
+                    <span>Lấy API Key miễn phí</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    value={customApiKey}
+                    onChange={(e) => handleApiKeyChange(e.target.value)}
+                    placeholder="Dán mã Google Gemini API Key dạng AIzaSy..."
+                    className="w-full pl-3 pr-10 py-2 rounded-xl border border-amber-300 bg-white text-xs font-mono font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-2xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    title={showApiKey ? 'Ẩn API Key' : 'Hiện API Key'}
+                  >
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-slate-600 font-medium leading-relaxed">
+                  {customApiKey.trim() ? (
+                    <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Đã gắn API Key cá nhân (Key sẽ tự động được ghi nhớ cho các lần dùng sau).</span>
+                    </span>
+                  ) : (
+                    <span>
+                      Gợi ý: Dán mã Gemini API Key từ <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-teal-700 font-bold underline">Google AI Studio</a> để đảm bảo AI hoạt động 100% không bị quá tải.
+                    </span>
+                  )}
+                </p>
+              </div>
+
               {/* 1. File Upload Area */}
               <div className="p-3.5 rounded-2xl bg-teal-50/60 border border-teal-200 space-y-2">
                 <div className="flex items-center justify-between">
