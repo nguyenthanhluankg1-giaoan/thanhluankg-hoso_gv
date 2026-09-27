@@ -29,19 +29,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setApiKeyInput(getStoredApiKey(currentUser));
   }, [currentUser]);
 
-  const handleSaveApiKeySetting = (e?: React.FormEvent) => {
+  const handleSaveApiKeySetting = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = apiKeyInput.trim();
-    saveStoredApiKey(trimmed, currentUser);
-    setApiKeySavedStatus('✓ Đã lưu API Key dùng chung thành công cho toàn bộ ứng dụng!');
-    setTimeout(() => setApiKeySavedStatus(null), 3000);
+    await saveStoredApiKey(trimmed, currentUser);
+    setApiKeySavedStatus('✓ Đã lưu & đồng bộ API Key lên hệ thống đám mây thành công!');
+    setTimeout(() => setApiKeySavedStatus(null), 3500);
   };
 
-  const handleClearApiKeySetting = () => {
-    clearStoredApiKey(currentUser);
+  const handleClearApiKeySetting = async () => {
+    await clearStoredApiKey(currentUser);
     setApiKeyInput('');
-    setApiKeySavedStatus('✓ Đã xóa API Key!');
-    setTimeout(() => setApiKeySavedStatus(null), 3000);
+    setApiKeySavedStatus('✓ Đã xóa API Key khỏi hệ thống lưu trữ!');
+    setTimeout(() => setApiKeySavedStatus(null), 3500);
   };
 
   const handleChange = (field: keyof SchoolConfig, value: string) => {

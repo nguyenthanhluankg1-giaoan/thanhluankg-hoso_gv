@@ -18,6 +18,7 @@ export interface UserAccount {
   lastLogin?: string;
   activeDays?: number; // Số ngày được cấp phép hoạt động
   expiresAt?: string; // Mốc thời gian ISO hết hạn hoạt động
+  apiKey?: string; // Gemini API Key cá nhân đồng bộ đám mây cho tài khoản Giáo viên
 }
 
 export interface ContactInfo {

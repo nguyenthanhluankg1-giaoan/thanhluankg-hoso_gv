@@ -552,15 +552,15 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
     setTopicError(null);
   };
 
-  const handleSaveApiKey = (keyToSave: string) => {
+  const handleSaveApiKey = async (keyToSave: string) => {
     const trimmed = keyToSave.trim();
-    saveStoredApiKey(trimmed, currentUser);
+    await saveStoredApiKey(trimmed, currentUser);
     setCustomApiKey(getStoredApiKey(currentUser));
     setShowApiKeyModal(false);
   };
 
-  const handleClearApiKey = () => {
-    clearStoredApiKey(currentUser);
+  const handleClearApiKey = async () => {
+    await clearStoredApiKey(currentUser);
     setCustomApiKey('');
     setInputKey('');
     setTestStatus(null);
