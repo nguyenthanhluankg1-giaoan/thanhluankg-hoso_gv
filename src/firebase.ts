@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -15,16 +15,16 @@ export const db = getFirestore(
 
 export const auth = getAuth(app);
 
-// Test connection gracefully
+// Test connection gracefully without blocking UI or throwing unhandled network errors
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'system', 'config'));
-    console.log('Firestore connection verified');
+    await getDoc(doc(db, 'system', 'config'));
+    console.log('Firestore connection initialized');
   } catch (error: any) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firestore operating in offline mode.');
+    if (error?.code === 'unavailable' || (error instanceof Error && error.message.includes('offline'))) {
+      console.warn('Firestore operating in offline/cached mode.');
     } else {
-      console.warn('Firestore connection check notice:', error);
+      console.warn('Firestore connection check notice:', error?.message || error);
     }
   }
 }

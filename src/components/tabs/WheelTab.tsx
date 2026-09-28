@@ -67,6 +67,39 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
     ? currentClassPool.filter((q) => q.subject === state.wheelQuizSubject)
     : currentClassPool;
 
+  // Filter question folders strictly by chosen Grade and Subject for the wheel selector
+  const availableFoldersForWheel = (state.questionFolders || DEFAULT_QUESTION_FOLDERS).filter((f) => {
+    // 1. Grade check: strictly exclude folders belonging to other grades
+    if (effectiveGrade) {
+      if (f.grade && f.grade !== 'all' && f.grade !== '') {
+        if (Number(f.grade) !== Number(effectiveGrade)) {
+          return false;
+        }
+      } else {
+        const hasMatchInGrade = quizQuestionsList.some(
+          (q) => q.folderId === f.id && (!q.grade || q.grade === 'all' || Number(q.grade) === Number(effectiveGrade))
+        );
+        if (!hasMatchInGrade) return false;
+      }
+    }
+
+    // 2. Subject check: strictly exclude folders belonging to other subjects
+    if (state.wheelQuizSubject && state.wheelQuizSubject !== 'all') {
+      if (f.subject && f.subject !== 'all' && f.subject !== '') {
+        if (f.subject !== state.wheelQuizSubject) {
+          return false;
+        }
+      } else {
+        const hasMatchInSubject = quizQuestionsList.some(
+          (q) => q.folderId === f.id && (!q.subject || q.subject === 'all' || q.subject === state.wheelQuizSubject)
+        );
+        if (!hasMatchInSubject) return false;
+      }
+    }
+
+    return true;
+  });
+
   // 4. Filter pool by chosen folder
   const currentFolderPool = state.wheelQuizFolderId && state.wheelQuizFolderId !== 'all'
     ? (state.wheelQuizFolderId === 'uncategorized'
@@ -547,12 +580,14 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
                       }
                       className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
                     >
-                      <option value="all">Tất cả các lớp (Chung)</option>
-                      {state.classes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
-                        </option>
-                      ))}
+                      <option value="all">Tất cả các lớp thuộc khối</option>
+                      {state.classes
+                        .filter((c) => !effectiveGrade || !c.grade || Number(c.grade) === Number(effectiveGrade))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
@@ -602,15 +637,18 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
                       }
                       className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     >
-                      <option value="all">Tất cả thư mục ({quizQuestionsList.length} câu)</option>
+                      <option value="all">📁 Tất cả thư mục ({currentSubjectPool.length} câu)</option>
                       <option value="uncategorized">
-                        Chưa xếp thư mục ({quizQuestionsList.filter((q) => !q.folderId).length} câu)
+                        🏷️ Chưa xếp thư mục ({currentSubjectPool.filter((q) => !q.folderId).length} câu)
                       </option>
-                      {(state.questionFolders || DEFAULT_QUESTION_FOLDERS).map((f) => (
-                        <option key={f.id} value={f.id}>
-                          📁 {f.name} ({quizQuestionsList.filter((q) => q.folderId === f.id).length} câu)
-                        </option>
-                      ))}
+                      {availableFoldersForWheel.map((f) => {
+                        const countInFolder = currentSubjectPool.filter((q) => q.folderId === f.id).length;
+                        return (
+                          <option key={f.id} value={f.id}>
+                            📁 {f.name} ({countInFolder} câu)
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 

@@ -760,17 +760,16 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 </span>
               </button>
 
-              {/* Custom Folders matching selected subject */}
+              {/* Custom Folders matching selected subject & grade */}
               {currentFolders
                 .filter((f) => {
+                  // Subject check: hide folders belonging to other subjects
                   if (selectedSubject !== 'all' && f.subject && f.subject !== 'all' && f.subject !== selectedSubject) {
-                    // Check if folder contains any questions in this subject
-                    const hasQuestionInSubject = questions.some((q) => q.folderId === f.id && q.subject === selectedSubject);
-                    if (!hasQuestionInSubject) return false;
+                    return false;
                   }
+                  // Grade check: hide folders belonging to other grades
                   if (selectedGrade !== 'all' && f.grade && f.grade !== 'all' && String(f.grade) !== String(selectedGrade)) {
-                    const hasQuestionInGrade = questions.some((q) => q.folderId === f.id && (String(q.grade) === String(selectedGrade) || !q.grade || q.grade === 'all'));
-                    if (!hasQuestionInGrade) return false;
+                    return false;
                   }
                   return true;
                 })
@@ -1011,7 +1010,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       onChange={(e) => setFormClassId(e.target.value)}
                       className="w-full px-2.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-extrabold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     >
-                      <option value="all">🏫 Tất cả các lớp (Áp dụng chung)</option>
+                      <option value="all">🎓 Áp dụng toàn Khối lớp (Theo khối đã chọn)</option>
                       {classes.map((c) => (
                         <option key={c.id} value={c.id}>
                           Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
@@ -1175,7 +1174,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     onChange={(e) => setSelectedClassId(e.target.value)}
                     className="w-full bg-transparent text-xs font-black text-emerald-950 focus:outline-none cursor-pointer"
                   >
-                    <option value="all">🏫 Tất cả các lớp (Chung)</option>
+                    <option value="all">🏫 Tất cả các lớp trong khối</option>
                     {classes.map((c) => (
                       <option key={c.id} value={c.id}>
                         Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
@@ -1559,7 +1558,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     onChange={(e) => setFolderClassId(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   >
-                    <option value="all">🏫 Tất cả lớp</option>
+                    <option value="all">🎓 Áp dụng toàn Khối lớp</option>
                     {classes.map((c) => (
                       <option key={c.id} value={c.id}>
                         Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
@@ -1862,7 +1861,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       onChange={(e) => setAiClassId(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-2xs"
                     >
-                      <option value="all">🏫 Tất cả các lớp (Áp dụng chung)</option>
+                      <option value="all">🎓 Áp dụng toàn Khối lớp</option>
                       {classes.map((c) => (
                         <option key={c.id} value={c.id}>
                           Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}

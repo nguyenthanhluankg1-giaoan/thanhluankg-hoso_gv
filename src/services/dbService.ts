@@ -5,7 +5,6 @@ import {
   getDocs,
   setDoc,
   deleteDoc,
-  getDocFromServer,
   onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -359,14 +358,9 @@ export async function loadAppStateFromFirestore(
   try {
     let cloudState: AppState | null = null;
 
-    // 1. Try loading from isolated workspaces collection directly from server first
+    // 1. Try loading from isolated workspaces collection
     const docRef = doc(db, 'workspaces', key);
-    let snap;
-    try {
-      snap = await getDocFromServer(docRef);
-    } catch {
-      snap = await getDoc(docRef);
-    }
+    const snap = await getDoc(docRef);
 
     if (snap && snap.exists()) {
       const data = snap.data() as AppState;
@@ -380,12 +374,7 @@ export async function loadAppStateFromFirestore(
     if (targetUserId) {
       try {
         const classesDocRef = doc(db, 'classes_data', targetUserId);
-        let classesSnap;
-        try {
-          classesSnap = await getDocFromServer(classesDocRef);
-        } catch {
-          classesSnap = await getDoc(classesDocRef);
-        }
+        const classesSnap = await getDoc(classesDocRef);
 
         if (classesSnap && classesSnap.exists()) {
           const cData = classesSnap.data();
@@ -526,12 +515,7 @@ export async function loadKhdhDataFromFirestore(userId: string): Promise<{
 } | null> {
   try {
     const docRef = doc(db, 'khdh_data', userId || 'shared');
-    let snap;
-    try {
-      snap = await getDocFromServer(docRef);
-    } catch {
-      snap = await getDoc(docRef);
-    }
+    const snap = await getDoc(docRef);
     if (snap && snap.exists()) {
       return snap.data() as any;
     }
