@@ -15,7 +15,7 @@ import { UserAccount } from '../types';
 import { getAccountExpirationInfo } from '../utils/helpers';
 
 interface LoginScreenProps {
-  onLogin: (user: UserAccount) => void;
+  onLogin: (user: UserAccount) => void | Promise<void>;
   users: UserAccount[];
   dbConnected: boolean;
   systemLogo?: string;
@@ -33,7 +33,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -51,7 +51,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     setLoading(true);
 
-    setTimeout(() => {
+    try {
       // Find matching user
       const found = users.find(
         (u) =>
@@ -80,9 +80,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         return;
       }
 
+      await onLogin(found);
+    } catch (err: any) {
+      setError('Có lỗi xảy ra khi đồng bộ dữ liệu tài khoản từ Cloud Firestore. Vui lòng kiểm tra kết nối mạng!');
+    } finally {
       setLoading(false);
-      onLogin(found);
-    }, 300);
+    }
   };
 
   return (
@@ -187,11 +190,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 hover:from-teal-700 hover:to-emerald-600 text-white font-extrabold text-sm shadow-lg shadow-teal-600/30 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-70 cursor-pointer"
           >
             {loading ? (
-              <span className="inline-block animate-spin mr-2">◌</span>
+              <>
+                <span className="inline-block animate-spin mr-2">◌</span>
+                <span>Đang đồng bộ dữ liệu Cloud...</span>
+              </>
             ) : (
-              <LogIn className="w-4 h-4" />
+              <>
+                <LogIn className="w-4 h-4" />
+                <span>Đăng Nhập Vào Hệ Thống</span>
+              </>
             )}
-            <span>Đăng Nhập Vào Hệ Thống</span>
           </button>
         </form>
 

@@ -5,7 +5,8 @@ import {
   getDocs,
   setDoc,
   deleteDoc,
-  getDocFromServer
+  getDocFromServer,
+  onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import {
@@ -358,10 +359,16 @@ export async function loadAppStateFromFirestore(
   try {
     let cloudState: AppState | null = null;
 
-    // 1. Try loading from isolated workspaces collection
+    // 1. Try loading from isolated workspaces collection directly from server first
     const docRef = doc(db, 'workspaces', key);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
+    let snap;
+    try {
+      snap = await getDocFromServer(docRef);
+    } catch {
+      snap = await getDoc(docRef);
+    }
+
+    if (snap && snap.exists()) {
       const data = snap.data() as AppState;
       if (data && data.version) {
         cloudState = data;
@@ -373,8 +380,14 @@ export async function loadAppStateFromFirestore(
     if (targetUserId) {
       try {
         const classesDocRef = doc(db, 'classes_data', targetUserId);
-        const classesSnap = await getDoc(classesDocRef);
-        if (classesSnap.exists()) {
+        let classesSnap;
+        try {
+          classesSnap = await getDocFromServer(classesDocRef);
+        } catch {
+          classesSnap = await getDoc(classesDocRef);
+        }
+
+        if (classesSnap && classesSnap.exists()) {
           const cData = classesSnap.data();
           if (cData && Array.isArray(cData.classes) && cData.classes.length > 0) {
             if (!cloudState) {
@@ -401,6 +414,56 @@ export async function loadAppStateFromFirestore(
     console.error('Failed to load classroom state from Firestore:', err);
     return null;
   }
+}
+
+/**
+ * Real-time listener for the user's workspace on Firestore
+ * Enables automatic live synchronization across multiple browsers/devices
+ */
+export function subscribeToUserWorkspace(
+  key: string,
+  onRemoteUpdate: (state: AppState) => void
+): () => void {
+  const docRef = doc(db, 'workspaces', key);
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      // Ignore local writes that haven't been committed to server yet
+      if (snap.exists() && !snap.metadata.hasPendingWrites) {
+        const data = snap.data() as AppState;
+        if (data && data.version) {
+          onRemoteUpdate(data);
+        }
+      }
+    },
+    (err) => {
+      console.warn('Real-time workspace sync listener notice:', err);
+    }
+  );
+}
+
+/**
+ * Real-time listener for the user's KHDH data on Firestore
+ */
+export function subscribeToUserKhdh(
+  userId: string,
+  onRemoteUpdate: (data: any) => void
+): () => void {
+  const docRef = doc(db, 'khdh_data', userId || 'shared');
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists() && !snap.metadata.hasPendingWrites) {
+        const data = snap.data();
+        if (data) {
+          onRemoteUpdate(data);
+        }
+      }
+    },
+    (err) => {
+      console.warn('Real-time KHDH listener notice:', err);
+    }
+  );
 }
 
 /**
@@ -463,8 +526,13 @@ export async function loadKhdhDataFromFirestore(userId: string): Promise<{
 } | null> {
   try {
     const docRef = doc(db, 'khdh_data', userId || 'shared');
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
+    let snap;
+    try {
+      snap = await getDocFromServer(docRef);
+    } catch {
+      snap = await getDoc(docRef);
+    }
+    if (snap && snap.exists()) {
       return snap.data() as any;
     }
   } catch (err) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Folder, ShieldAlert, AlertCircle, RefreshCw, LogOut, PhoneCall } from 'lucide-react';
 import { AppState, UserAccount, ContactInfo } from './types';
 import {
@@ -14,6 +14,7 @@ import {
   saveSessionUser,
   saveAppStateToFirestore,
   loadAppStateFromFirestore,
+  subscribeToUserWorkspace,
   getUserWorkspaceKey,
   INITIAL_DEFAULT_USERS,
   fetchSystemConfig,
@@ -61,6 +62,10 @@ export default function App() {
   const [guideModalOpen, setGuideModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [contactInfo, setContactInfo] = useState<ContactInfo>(() => getLocalCachedContactInfo());
+
+  // References to guarantee no race conditions across browsers
+  const cloudLoadedUserRef = useRef<string | null>(null);
+  const isRemoteSyncingRef = useRef<boolean>(false);
 
   // Initial load of users & state from Firestore
   useEffect(() => {
@@ -132,6 +137,7 @@ export default function App() {
               saveStoredState(savedUser, cloudState);
             }
           }
+          cloudLoadedUserRef.current = savedUser.id;
         }
       } catch (err) {
         console.warn('Cloud app state initialization error:', err);
@@ -144,9 +150,40 @@ export default function App() {
     };
   }, []);
 
+  // Real-time synchronization across devices / browsers via Firestore onSnapshot
+  useEffect(() => {
+    if (!currentUser) return;
+    const wsKey = getUserWorkspaceKey(currentUser);
+    const unsubscribe = subscribeToUserWorkspace(wsKey, (remoteState) => {
+      if (remoteState && remoteState.version) {
+        isRemoteSyncingRef.current = true;
+        setState((prev) => ({
+          ...remoteState,
+          currentPage: prev.currentPage
+        }));
+        saveStoredState(currentUser, remoteState);
+        const syncTime = new Date();
+        setSavedTime(
+          syncTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        );
+      }
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.id]);
+
   // Ultra-fast auto-sync whenever state changes: immediate local storage + 150ms background Cloud Firestore save
   useEffect(() => {
     if (!currentUser) return;
+
+    // Do NOT write to Firestore if cloud has not finished loading for this user yet
+    if (cloudLoadedUserRef.current !== currentUser.id) return;
+
+    // Do NOT echo-save when the state update came from remote onSnapshot
+    if (isRemoteSyncingRef.current) {
+      isRemoteSyncingRef.current = false;
+      return;
+    }
 
     saveStoredState(currentUser, state);
 
@@ -255,29 +292,39 @@ export default function App() {
   };
 
   const handleLogin = async (user: UserAccount) => {
-    saveSessionUser(user);
-    setCurrentUser(user);
-
-    // 1. Immediately load local isolated state for this specific user so UI switches without delay
-    const localUserState = loadStoredState(user);
-    localUserState.currentPage = user.role === 'admin' ? 'accounts' : 'home';
-    setState(localUserState);
-
-    // 2. Fetch the user's isolated workspace from Firestore in the background
+    // 1. Fetch user's isolated workspace directly from Firestore FIRST before allowing auto-save to run!
+    let stateToUse: AppState;
     try {
       const wsKey = getUserWorkspaceKey(user);
       const cloudState = await loadAppStateFromFirestore(wsKey, user);
-      if (cloudState) {
-        cloudState.currentPage = user.role === 'admin' ? 'accounts' : 'home';
-        setState(cloudState);
-        saveStoredState(user, cloudState);
+      if (cloudState && cloudState.version) {
+        stateToUse = {
+          ...cloudState,
+          currentPage: user.role === 'admin' ? 'accounts' : 'home'
+        };
+        saveStoredState(user, stateToUse);
+      } else {
+        const localUserState = loadStoredState(user);
+        localUserState.currentPage = user.role === 'admin' ? 'accounts' : 'home';
+        stateToUse = localUserState;
       }
     } catch (err) {
       console.warn('Error fetching cloud state on login:', err);
+      const localUserState = loadStoredState(user);
+      localUserState.currentPage = user.role === 'admin' ? 'accounts' : 'home';
+      stateToUse = localUserState;
     }
+
+    // Mark that cloud has been loaded for this user, so subsequent edits can safely sync
+    cloudLoadedUserRef.current = user.id;
+
+    saveSessionUser(user);
+    setState(stateToUse);
+    setCurrentUser(user);
   };
 
   const handleLogout = () => {
+    cloudLoadedUserRef.current = null;
     if (currentUser) {
       const wsKey = getUserWorkspaceKey(currentUser);
       saveStoredState(currentUser, state);

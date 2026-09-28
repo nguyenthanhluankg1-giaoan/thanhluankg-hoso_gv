@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navbar, KhdhTabId } from './Navbar';
 import { DocumentPreview } from './DocumentPreview';
 import { PpctManager } from './PpctManager';
@@ -14,6 +14,7 @@ import {
 import {
   saveKhdhDataToFirestore,
   loadKhdhDataFromFirestore,
+  subscribeToUserKhdh,
   getSavedSessionUser,
   getUserKhdhStorageKeys
 } from '../services/dbService';
@@ -135,6 +136,10 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
     } catch {}
   }, [activeTab]);
 
+  // Safety references to prevent race condition overwriting
+  const isCloudLoadedRef = useRef<boolean>(false);
+  const isRemoteKhdhSyncingRef = useRef<boolean>(false);
+
   // Load from Firestore whenever currentUser changes or on initial mount
   useEffect(() => {
     let active = true;
@@ -158,7 +163,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
         console.warn('Local storage parse on user switch:', err);
       }
 
-      // Fetch cloud state from Firestore
+      // Fetch cloud state from Firestore directly
       try {
         const cloudData = await loadKhdhDataFromFirestore(currentUserId);
         if (cloudData && active) {
@@ -185,6 +190,10 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
         }
       } catch (err) {
         console.warn('Error loading KHDH cloud data:', err);
+      } finally {
+        if (active) {
+          isCloudLoadedRef.current = true;
+        }
       }
     }
 
@@ -194,8 +203,36 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
     };
   }, [activeUser?.id]);
 
+  // Live synchronization of KHDH across browsers/devices via Firestore onSnapshot
+  useEffect(() => {
+    const currentUserId = activeUser?.id || 'shared';
+    const unsubscribe = subscribeToUserKhdh(currentUserId, (remoteData) => {
+      if (remoteData) {
+        isRemoteKhdhSyncingRef.current = true;
+        if (remoteData.config) setConfig(remoteData.config);
+        if (remoteData.ppctList) setPpctList(remoteData.ppctList);
+        if (remoteData.timetable) setTimetable(remoteData.timetable);
+        if (remoteData.customizedWeeks) setCustomizedWeeks(remoteData.customizedWeeks);
+        if (remoteData.configuredClasses && Array.isArray(remoteData.configuredClasses)) {
+          setConfiguredClasses(remoteData.configuredClasses);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [activeUser?.id]);
+
   // Save to localStorage & Firestore with debouncing
   useEffect(() => {
+    // CRITICAL: Do NOT write to Firestore before cloud data has been loaded for this user
+    if (!isCloudLoadedRef.current) return;
+
+    // Do NOT echo-save if update was received from remote subscription
+    if (isRemoteKhdhSyncingRef.current) {
+      isRemoteKhdhSyncingRef.current = false;
+      return;
+    }
+
     const userKeys = getUserKhdhStorageKeys(activeUser?.id);
     try {
       localStorage.setItem(userKeys.CONFIG, JSON.stringify(config));
