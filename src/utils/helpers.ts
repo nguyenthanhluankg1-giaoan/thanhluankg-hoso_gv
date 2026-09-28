@@ -160,8 +160,7 @@ export function getDefaultState(): AppState {
     wheelQuizTimer: 15,
     wheelQuizSubject: 'all',
     wheelQuizShuffleOptions: true,
-    usedQuizQuestionIds: [],
-    worksheets: []
+    usedQuizQuestionIds: []
   };
 }
 

@@ -189,101 +189,65 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
   };
 
   const handleDownloadSampleExcel = () => {
-    const sampleRows = isGvcn
-      ? [
-          {
-            'STT': 1,
-            'Khối lớp': 3,
-            'Môn học': 'Tiếng Việt',
-            'Phân môn': 'Đọc (Tập đọc)',
-            'Tuần': 1,
-            'Tiết theo PPCT': 1,
-            'Tên bài dạy': 'Bài 1. Mùa thu của em (Tiết 1 - Đọc)',
-            'Nội dung tích hợp / Điều chỉnh': '[NLS] Đọc diễn cảm bài thơ mùa thu',
-            'Ghi chú': 'Chủ đề 1. Cổng trường mở ra'
-          },
-          {
-            'STT': 2,
-            'Khối lớp': 3,
-            'Môn học': 'Tiếng Việt',
-            'Phân môn': 'Luyện từ và câu (LTVC)',
-            'Tuần': 1,
-            'Tiết theo PPCT': 2,
-            'Tên bài dạy': 'Bài 1. Mùa thu của em (Tiết 2 - LTVC: Từ ngữ chỉ sự vật)',
-            'Nội dung tích hợp / Điều chỉnh': 'Thực hành mở rộng vốn từ',
-            'Ghi chú': 'Luyện tập'
-          },
-          {
-            'STT': 3,
-            'Khối lớp': 4,
-            'Môn học': 'Lịch sử và Địa lí',
-            'Phân môn': 'Lịch sử',
-            'Tuần': 1,
-            'Tiết theo PPCT': 1,
-            'Tên bài dạy': 'Bài 1. Làm quen với phương tiện học tập môn Lịch sử và Địa lí',
-            'Nội dung tích hợp / Điều chỉnh': '[CĐS] Khai thác bản đồ số',
-            'Ghi chú': 'Tiết 1 Lịch sử'
-          },
-          {
-            'STT': 4,
-            'Khối lớp': 5,
-            'Môn học': 'Lịch sử và Địa lí',
-            'Phân môn': 'Địa lí',
-            'Tuần': 1,
-            'Tiết theo PPCT': 1,
-            'Tên bài dạy': 'Bài 1. Vị trí địa lí, lãnh thổ, biển đảo Việt Nam',
-            'Nội dung tích hợp / Điều chỉnh': '[GDQP] Giáo dục chủ quyền biển đảo',
-            'Ghi chú': 'Tiết 1 Địa lí'
-          }
-        ]
-      : [
-          {
-            'STT': 1,
-            'Khối lớp': 3,
-            'Môn học': 'Tiếng Anh',
-            'Tuần': 1,
-            'Tiết theo PPCT': 1,
-            'Tên bài dạy': 'Unit 1: Hello - Lesson 1',
-            'Nội dung tích hợp / Điều chỉnh': '[NLS] Giao tiếp chào hỏi cơ bản',
-            'Ghi chú': 'Tiết 1'
-          },
-          {
-            'STT': 2,
-            'Khối lớp': 3,
-            'Môn học': 'Tiếng Anh',
-            'Tuần': 1,
-            'Tiết theo PPCT': 2,
-            'Tên bài dạy': 'Unit 1: Hello - Lesson 2',
-            'Nội dung tích hợp / Điều chỉnh': '[CĐS] Luyện phát âm qua app',
-            'Ghi chú': 'Tiết 2'
-          }
-        ];
+    const sampleRows = [
+      {
+        'STT': 1,
+        'Khối lớp': 3,
+        'Môn học': 'Tiếng Việt',
+        'Phân môn': 'Đọc (Tập đọc)',
+        'Tuần': 1,
+        'Tiết theo PPCT': 1,
+        'Tên bài dạy': 'Bài 1. Mùa thu của em (Tiết 1 - Đọc)',
+        'Nội dung tích hợp / Điều chỉnh': '[NLS] Đọc diễn cảm bài thơ mùa thu',
+        'Ghi chú': 'Chủ đề 1. Cổng trường mở ra'
+      },
+      {
+        'STT': 2,
+        'Khối lớp': 3,
+        'Môn học': 'Tiếng Việt',
+        'Phân môn': 'Luyện từ và câu (LTVC)',
+        'Tuần': 1,
+        'Tiết theo PPCT': 2,
+        'Tên bài dạy': 'Bài 1. Mùa thu của em (Tiết 2 - LTVC: Từ ngữ chỉ sự vật)',
+        'Nội dung tích hợp / Điều chỉnh': 'Thực hành mở rộng vốn từ',
+        'Ghi chú': 'Luyện tập'
+      },
+      {
+        'STT': 3,
+        'Khối lớp': 4,
+        'Môn học': 'Lịch sử và Địa lí',
+        'Phân môn': 'Lịch sử',
+        'Tuần': 1,
+        'Tiết theo PPCT': 1,
+        'Tên bài dạy': 'Bài 1. Làm quen với phương tiện học tập môn Lịch sử và Địa lí',
+        'Nội dung tích hợp / Điều chỉnh': '[CĐS] Khai thác bản đồ số',
+        'Ghi chú': 'Tiết 1 Lịch sử'
+      },
+      {
+        'STT': 4,
+        'Khối lớp': 5,
+        'Môn học': 'Lịch sử và Địa lí',
+        'Phân môn': 'Địa lí',
+        'Tuần': 1,
+        'Tiết theo PPCT': 1,
+        'Tên bài dạy': 'Bài 1. Vị trí địa lí, lãnh thổ, biển đảo Việt Nam',
+        'Nội dung tích hợp / Điều chỉnh': '[GDQP] Giáo dục chủ quyền biển đảo',
+        'Ghi chú': 'Tiết 1 Địa lí'
+      }
+    ];
 
     const worksheet = XLSX.utils.json_to_sheet(sampleRows);
-    if (isGvcn) {
-      worksheet['!cols'] = [
-        { wch: 6 },
-        { wch: 10 },
-        { wch: 18 },
-        { wch: 22 },
-        { wch: 8 },
-        { wch: 16 },
-        { wch: 45 },
-        { wch: 45 },
-        { wch: 25 }
-      ];
-    } else {
-      worksheet['!cols'] = [
-        { wch: 6 },
-        { wch: 10 },
-        { wch: 18 },
-        { wch: 8 },
-        { wch: 16 },
-        { wch: 45 },
-        { wch: 45 },
-        { wch: 25 }
-      ];
-    }
+    worksheet['!cols'] = [
+      { wch: 6 },
+      { wch: 10 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 8 },
+      { wch: 16 },
+      { wch: 45 },
+      { wch: 45 },
+      { wch: 25 }
+    ];
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Mau_Phan_Phoi_Chuong_Trinh');
@@ -291,22 +255,17 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
   };
 
   const handleExportExcel = () => {
-    const data = filteredList.map((item, idx) => {
-      const row: Record<string, any> = {
-        STT: idx + 1,
-        'Khối lớp': item.grade,
-        'Môn học': item.subject
-      };
-      if (isGvcn) {
-        row['Phân môn'] = item.subSubject || '';
-      }
-      row['Tuần'] = item.week;
-      row['Tiết theo PPCT'] = item.periodIndex;
-      row['Tên bài dạy'] = item.lessonName;
-      row['Nội dung tích hợp / Điều chỉnh'] = item.integrationNote || '';
-      row['Ghi chú'] = item.notes || '';
-      return row;
-    });
+    const data = filteredList.map((item, idx) => ({
+      STT: idx + 1,
+      'Khối lớp': item.grade,
+      'Môn học': item.subject,
+      'Phân môn': item.subSubject || '',
+      Tuần: item.week,
+      'Tiết theo PPCT': item.periodIndex,
+      'Tên bài dạy': item.lessonName,
+      'Nội dung tích hợp / Điều chỉnh': item.integrationNote || '',
+      'Ghi chú': item.notes || ''
+    }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -468,12 +427,12 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
 
         {/* Filters */}
         <div className="space-y-3 pt-3 border-t border-slate-100">
-          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isGvcn ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder={isGvcn ? 'Tìm bài dạy, phân môn, tích hợp...' : 'Tìm bài dạy, tích hợp...'}
+                placeholder="Tìm bài dạy, phân môn, tích hợp..."
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
@@ -517,26 +476,24 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
               </select>
             </div>
 
-            {isGvcn && (
-              <div>
-                <select
-                  value={selectedSubSubject}
-                  onChange={(e) => setSelectedSubSubject(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-teal-300 text-xs font-bold text-teal-900 bg-teal-50/60 focus:outline-none focus:border-teal-500"
-                >
-                  <option value="all">Tất cả phân môn (GVCN)</option>
-                  {availableFilterSubSubjects.map((sub) => (
-                    <option key={sub} value={sub}>
-                      Phân môn: {sub}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <select
+                value={selectedSubSubject}
+                onChange={(e) => setSelectedSubSubject(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-teal-300 text-xs font-bold text-teal-900 bg-teal-50/60 focus:outline-none focus:border-teal-500"
+              >
+                <option value="all">Tất cả phân môn (GVCN)</option>
+                {availableFilterSubSubjects.map((sub) => (
+                  <option key={sub} value={sub}>
+                    Phân môn: {sub}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Quick Sub-subject Filter Chips for GVCN */}
-          {isGvcn && availableFilterSubSubjects.length > 0 && (
+          {availableFilterSubSubjects.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap pt-1">
               <span className="text-[10px] font-black text-teal-800 uppercase tracking-tight flex items-center gap-1">
                 <Layers className="w-3 h-3 text-teal-600" />
@@ -590,7 +547,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
               <tr className="bg-teal-50/90 text-slate-800 border-b-2 border-teal-200 font-black text-center">
                 <th className="py-3 px-3 w-16">KHỐI</th>
                 <th className="py-3 px-3 w-28">MÔN HỌC</th>
-                {isGvcn && <th className="py-3 px-3 w-36">PHÂN MÔN (GVCN)</th>}
+                <th className="py-3 px-3 w-36">PHÂN MÔN (GVCN)</th>
                 <th className="py-3 px-2 w-16">TUẦN</th>
                 <th className="py-3 px-2 w-16">TIẾT</th>
                 <th className="py-3 px-4 text-left">TÊN BÀI DẠY</th>
@@ -602,7 +559,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {ppctList.length === 0 ? (
                 <tr>
-                  <td colSpan={isGvcn ? 9 : 8} className="py-12 px-4 text-center">
+                  <td colSpan={9} className="py-12 px-4 text-center">
                     <div className="max-w-md mx-auto space-y-3">
                       <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 mx-auto flex items-center justify-center border border-rose-100 shadow-xs">
                         <Trash2 className="w-6 h-6" />
@@ -650,7 +607,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                 </tr>
               ) : filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={isGvcn ? 9 : 8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     Không tìm thấy bài dạy nào phù hợp với bộ lọc.
                   </td>
                 </tr>
@@ -663,17 +620,15 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                     <td className="py-3 px-3 text-center font-bold text-slate-800">
                       {item.subject}
                     </td>
-                    {isGvcn && (
-                      <td className="py-3 px-3 text-center">
-                        {item.subSubject ? (
-                          <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-300 inline-block shadow-2xs">
-                            {item.subSubject}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                    )}
+                    <td className="py-3 px-3 text-center">
+                      {item.subSubject ? (
+                        <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-300 inline-block shadow-2xs">
+                          {item.subSubject}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
+                    </td>
                     <td className="py-3 px-2 text-center font-bold text-slate-600">
                       T{item.week}
                     </td>
@@ -798,8 +753,8 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                 </div>
               </div>
 
-              {/* Phân môn selector based on Grade & Subject (Chỉ hiển thị cho GVCN khi có phân môn) */}
-              {isGvcn && (availableSubSubjects.length > 0 || formSubject === 'Tiếng Việt') && (
+              {/* Phân môn selector based on Grade & Subject (Chỉ hiển thị khi có phân môn) */}
+              {(availableSubSubjects.length > 0 || formSubject === 'Tiếng Việt') && (
                 <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">

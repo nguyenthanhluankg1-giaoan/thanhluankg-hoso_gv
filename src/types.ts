@@ -204,29 +204,6 @@ export interface AppState {
   wheelQuizFolderId?: string; // 'all', 'uncategorized', or specific folder ID
   wheelQuizShuffleOptions?: boolean; // Tự động đảo thứ tự các đáp án A B C D khi hiển thị
   usedQuizQuestionIds?: string[]; // IDs of questions already asked, to ensure no duplicates
-  worksheets?: WorksheetItem[];
-}
-
-export interface WorksheetQuestion {
-  id: string;
-  type: 'mcq' | 'essay' | 'fill' | 'matching';
-  questionText: string;
-  options?: string[]; // Dùng cho trắc nghiệm
-  correctAnswer?: string;
-  score?: number;
-  explanation?: string;
-}
-
-export interface WorksheetItem {
-  id: string;
-  title: string;
-  subject: string;
-  grade: string;
-  schoolName?: string;
-  teacherName?: string;
-  createdDate: string;
-  note?: string;
-  questions: WorksheetQuestion[];
 }
 
 export const DEFAULT_SUBJECTS: string[] = [
