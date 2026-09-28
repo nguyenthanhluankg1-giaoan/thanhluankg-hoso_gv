@@ -553,7 +553,7 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
                       className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
                     >
                       <option value="auto">
-                        ⚡ Tự động theo lớp đang chọn {activeClass ? `(${activeClass.name} - Khối ${activeClassGrade || 3})` : ''}
+                        ⚡ Tự động theo khối của lớp {activeClass ? `(${activeClass.name} - Khối ${activeClassGrade || 3})` : ''}
                       </option>
                       <option value="all">Tất cả khối lớp (1, 2, 3, 4, 5)</option>
                       <option value="1">Khối 1</option>
@@ -561,33 +561,6 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
                       <option value="3">Khối 3</option>
                       <option value="4">Khối 4</option>
                       <option value="5">Khối 5</option>
-                    </select>
-                  </div>
-
-                  {/* Class filter */}
-                  <div>
-                    <span className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                      <School className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Lớp học áp dụng:</span>
-                    </span>
-                    <select
-                      value={state.wheelQuizClassId || 'all'}
-                      onChange={(e) =>
-                        onUpdateState((prev) => ({
-                          ...prev,
-                          wheelQuizClassId: e.target.value
-                        }))
-                      }
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
-                    >
-                      <option value="all">Tất cả các lớp thuộc khối</option>
-                      {state.classes
-                        .filter((c) => !effectiveGrade || !c.grade || Number(c.grade) === Number(effectiveGrade))
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
-                          </option>
-                        ))}
                     </select>
                   </div>
 

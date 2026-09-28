@@ -977,8 +977,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
               {/* Metadata Row: Grade, Class, Subject, Folder, Coins, Explanation */}
               <div className="space-y-3 pt-1">
-                {/* Row 1: Grade, Class, Subject */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Row 1: Grade, Subject */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Select Grade */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
@@ -996,26 +996,6 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       <option value="3">Khối 3</option>
                       <option value="4">Khối 4</option>
                       <option value="5">Khối 5</option>
-                    </select>
-                  </div>
-
-                  {/* Select Class */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                      <School className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Lớp học áp dụng:</span>
-                    </label>
-                    <select
-                      value={formClassId}
-                      onChange={(e) => setFormClassId(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-extrabold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    >
-                      <option value="all">🎓 Áp dụng toàn Khối lớp (Theo khối đã chọn)</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
-                        </option>
-                      ))}
                     </select>
                   </div>
 
@@ -1147,7 +1127,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
               </div>
 
               {/* Grade filter */}
-              <div className="sm:col-span-3 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 shadow-2xs">
+              <div className="sm:col-span-5 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 shadow-2xs">
                 <GraduationCap className="w-4 h-4 text-indigo-600 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <select
@@ -1155,31 +1135,12 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     onChange={(e) => setSelectedGrade(e.target.value)}
                     className="w-full bg-transparent text-xs font-black text-indigo-950 focus:outline-none cursor-pointer"
                   >
-                    <option value="all">🎓 Tất cả khối lớp</option>
+                    <option value="all">🎓 Tất cả khối lớp (1 - 5)</option>
                     <option value="1">Khối 1</option>
                     <option value="2">Khối 2</option>
                     <option value="3">Khối 3</option>
                     <option value="4">Khối 4</option>
                     <option value="5">Khối 5</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Class filter */}
-              <div className="sm:col-span-4 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-emerald-200 shadow-2xs">
-                <School className="w-4 h-4 text-emerald-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <select
-                    value={selectedClassId}
-                    onChange={(e) => setSelectedClassId(e.target.value)}
-                    className="w-full bg-transparent text-xs font-black text-emerald-950 focus:outline-none cursor-pointer"
-                  >
-                    <option value="all">🏫 Tất cả các lớp trong khối</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
-                      </option>
-                    ))}
                   </select>
                 </div>
               </div>
@@ -1359,13 +1320,14 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                           <span>{q.grade ? `Khối ${q.grade}` : 'Khối 1-5'}</span>
                         </span>
 
-                        {/* Class Tag */}
+                        {/* Class Tag (Only if specific class assigned) */}
                         {(() => {
                           const matchedClass = classes.find((c) => c.id === q.classId);
+                          if (!matchedClass && (!q.classId || q.classId === 'all')) return null;
                           return (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                               <School className="w-3 h-3 text-emerald-600" />
-                              <span>{matchedClass ? `Lớp ${matchedClass.name}` : (q.classId && q.classId !== 'all' ? `Lớp ${q.classId}` : 'Tất cả lớp')}</span>
+                              <span>{matchedClass ? `Lớp ${matchedClass.name}` : `Lớp ${q.classId}`}</span>
                             </span>
                           );
                         })()}
@@ -1528,44 +1490,23 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-1 flex items-center gap-1">
-                    <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Khối lớp:</span>
-                  </label>
-                  <select
-                    value={folderGrade}
-                    onChange={(e) => setFolderGrade(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/40 text-xs font-bold text-indigo-950 focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  >
-                    <option value="all">🌟 Tất cả khối</option>
-                    <option value="1">Khối 1</option>
-                    <option value="2">Khối 2</option>
-                    <option value="3">Khối 3</option>
-                    <option value="4">Khối 4</option>
-                    <option value="5">Khối 5</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-1 flex items-center gap-1">
-                    <School className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Lớp học:</span>
-                  </label>
-                  <select
-                    value={folderClassId}
-                    onChange={(e) => setFolderClassId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  >
-                    <option value="all">🎓 Áp dụng toàn Khối lớp</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1 flex items-center gap-1">
+                  <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Khối lớp áp dụng:</span>
+                </label>
+                <select
+                  value={folderGrade}
+                  onChange={(e) => setFolderGrade(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/40 text-xs font-bold text-indigo-950 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  <option value="all">🌟 Tất cả các khối (Khối 1 - 5)</option>
+                  <option value="1">Khối 1</option>
+                  <option value="2">Khối 2</option>
+                  <option value="3">Khối 3</option>
+                  <option value="4">Khối 4</option>
+                  <option value="5">Khối 5</option>
+                </select>
               </div>
 
               <div>
@@ -1848,47 +1789,24 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                   </div>
                 </div>
 
-                {/* Row 2: Class + Folder */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Class */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-800 mb-1 flex items-center gap-1">
-                      <School className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Lớp học áp dụng:</span>
-                    </label>
-                    <select
-                      value={aiClassId}
-                      onChange={(e) => setAiClassId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-2xs"
-                    >
-                      <option value="all">🎓 Áp dụng toàn Khối lớp</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Target Folder */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-800 mb-1 flex items-center gap-1">
-                      <Folder className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Lưu vào thư mục:</span>
-                    </label>
-                    <select
-                      value={aiFolderId}
-                      onChange={(e) => setAiFolderId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
-                    >
-                      <option value="">-- Chưa xếp thư mục (Chung) --</option>
-                      {currentFolders.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          📁 {f.name} {f.subject && f.subject !== 'all' ? `(${f.subject})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Target Folder */}
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-800 mb-1 flex items-center gap-1">
+                    <Folder className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Lưu vào thư mục:</span>
+                  </label>
+                  <select
+                    value={aiFolderId}
+                    onChange={(e) => setAiFolderId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
+                  >
+                    <option value="">-- Chưa xếp thư mục (Chung) --</option>
+                    {currentFolders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        📁 {f.name} {f.subject && f.subject !== 'all' ? `(${f.subject})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
