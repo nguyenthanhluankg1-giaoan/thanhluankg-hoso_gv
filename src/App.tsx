@@ -144,12 +144,11 @@ export default function App() {
     };
   }, []);
 
-  // Auto-save whenever state changes: local storage + debounced cloud Firestore save for this specific user
+  // Ultra-fast auto-sync whenever state changes: immediate local storage + 150ms background Cloud Firestore save
   useEffect(() => {
     if (!currentUser) return;
 
     saveStoredState(currentUser, state);
-    const now = new Date();
 
     const wsKey = getUserWorkspaceKey(currentUser);
     const timer = setTimeout(async () => {
@@ -166,11 +165,29 @@ export default function App() {
           );
         }
       } catch (err) {
-        console.warn('Debounced firestore save error:', err);
+        console.warn('Auto-save firestore error:', err);
       }
-    }, 400);
+    }, 150);
 
     return () => clearTimeout(timer);
+  }, [state, currentUser]);
+
+  // Ensure state is flushed on page unload/close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentUser) {
+        saveStoredState(currentUser, state);
+        const wsKey = getUserWorkspaceKey(currentUser);
+        saveAppStateToFirestore(wsKey, state, {
+          userId: currentUser.id,
+          teacherName: currentUser.name,
+          role: currentUser.role
+        }).catch(console.warn);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [state, currentUser]);
 
   const handleForceSync = async (newState: AppState): Promise<boolean> => {
@@ -178,7 +195,7 @@ export default function App() {
     saveStoredState(currentUser, newState);
     const now = new Date();
     setSavedTime(
-      now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     );
     const wsKey = getUserWorkspaceKey(currentUser);
     return await saveAppStateToFirestore(wsKey, newState, {

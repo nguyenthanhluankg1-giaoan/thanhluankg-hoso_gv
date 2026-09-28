@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Menu, Database, LogOut, ShieldCheck, UserCheck, Smartphone, Clock, AlertTriangle, Infinity } from 'lucide-react';
+import { CheckCircle2, Menu, Database, LogOut, ShieldCheck, UserCheck, Smartphone, Clock, AlertTriangle, Infinity, Cloud } from 'lucide-react';
 import { ClassInfo, TeacherProfile, UserAccount } from '../types';
 import { Avatar } from './Avatar';
 import { useDeviceDetect } from '../hooks/useDeviceDetect';
@@ -136,11 +136,12 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         {/* Firestore Database Live Status */}
         <div
-          className="hidden sm:flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-teal-50 border border-teal-200/80 text-teal-800 font-bold text-[10px]"
-          title="Dữ liệu được lưu trữ trực tuyến trên Google Cloud Firestore theo từng tài khoản"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-[10px]"
+          title="Hệ thống tự động lưu trữ và đồng bộ nhanh lên Google Cloud Firestore mỗi khi có thay đổi"
         >
-          <Database className="w-3 h-3 text-teal-600 animate-pulse" />
-          <span className="hidden md:inline">Cloud {savedTime}</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <Cloud className="w-3 h-3 text-emerald-600" />
+          <span className="hidden md:inline">Tự động lưu {savedTime}</span>
           <span className="md:hidden">{savedTime}</span>
         </div>
 

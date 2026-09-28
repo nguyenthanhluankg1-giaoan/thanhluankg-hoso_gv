@@ -28,12 +28,11 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
   const [formBannerUrl, setFormBannerUrl] = useState('');
   const [formSlogan, setFormSlogan] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const openModal = (cls?: ClassInfo) => {
@@ -75,18 +74,6 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
-    }
-  };
-
-  const handleManualSync = async () => {
-    if (!onForceSync) return;
-    setIsSyncing(true);
-    const ok = await onForceSync(state);
-    setIsSyncing(false);
-    if (ok) {
-      showToast('Đã đồng bộ danh sách lớp học lên Cloud Firestore thành công!');
-    } else {
-      showToast('Đang lưu ở bộ nhớ đệm, sẽ tự động đồng bộ khi có mạng.');
     }
   };
 
@@ -205,18 +192,15 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {onForceSync && (
-            <button
-              type="button"
-              onClick={handleManualSync}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs border border-teal-200 shadow-2xs transition-all cursor-pointer"
-              title="Đồng bộ thủ công danh sách lớp lên Cloud Firestore"
-            >
-              <Cloud className={`w-4 h-4 text-teal-600 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Firestore'}</span>
-            </button>
-          )}
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-xs shadow-2xs"
+            title="Dữ liệu lớp học được tự động lưu và đồng bộ tức thì lên Cloud Firestore"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Tự động lưu Cloud</span>
+          </div>
+
           <button
             onClick={() => openModal()}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm shadow-md shadow-teal-600/20 transition-all self-start sm:self-auto cursor-pointer"
