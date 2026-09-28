@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Thư mục hiện tại được xác định trực tiếp theo trang đang mở
-  const activeFolder = currentPage === 'khdh' ? 'khdh' : 'classroom';
+  const activeFolder = currentPage === 'khdh' ? 'khdh' : currentPage === 'worksheets' ? 'worksheets' : 'classroom';
 
   const [khdhTab, setKhdhTab] = useState<string>(() => {
     try {
@@ -87,13 +87,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const handleSelectClassroomFolder = () => {
-    if (currentPage === 'khdh') {
+    if (currentPage === 'khdh' || currentPage === 'worksheets') {
       onNavigate('home');
     }
   };
 
   const handleSelectKhdhFolder = () => {
     onNavigate('khdh');
+    onClose();
+  };
+
+  const handleSelectWorksheetsFolder = () => {
+    onNavigate('worksheets');
     onClose();
   };
 
@@ -267,6 +272,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {currentUser?.teacherType === 'GVBM' ? 'GVBM' : 'GVCN'}
               </span>
             </button>
+
+            {/* 3. Thư mục PHIẾU HỌC TẬP xếp ngay phía dưới Kế hoạch dạy học */}
+            <button
+              type="button"
+              onClick={handleSelectWorksheetsFolder}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl transition-all text-left cursor-pointer border ${
+                activeFolder === 'worksheets'
+                  ? 'bg-gradient-to-r from-teal-600 to-teal-500 text-white border-teal-600 shadow-md shadow-teal-600/20 font-black'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/90 font-bold hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Folder
+                  className={`w-4 h-4 shrink-0 ${
+                    activeFolder === 'worksheets' ? 'text-white' : 'text-slate-500'
+                  }`}
+                />
+                <span className="text-[13px] tracking-tight truncate">
+                  Phiếu học tập
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                  activeFolder === 'worksheets'
+                    ? 'bg-white/25 text-white'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                Trống
+              </span>
+            </button>
           </div>
 
           {/* Nội dung nạp vào theo thư mục đang chọn */}
@@ -282,7 +318,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </p>
               </div>
             </div>
-          ) : (
+          ) : activeFolder === 'khdh' ? (
             <div className="space-y-2 animate-in fade-in duration-150 p-1">
               <div className="p-3 rounded-2xl bg-teal-50/80 border border-teal-200/80 text-teal-900 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-black text-teal-800">
@@ -291,6 +327,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <p className="text-[11px] font-medium text-slate-600 leading-snug">
                   Tất cả <span className="font-bold text-teal-700">{khdhItems.length} công cụ</span> được hiển thị đầy đủ trên thanh chọn phía trên bên phải.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 animate-in fade-in duration-150 p-1">
+              <div className="p-3 rounded-2xl bg-teal-50/80 border border-teal-200/80 text-teal-900 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-black text-teal-800">
+                  <Folder className="w-4 h-4 text-teal-600" />
+                  <span>Phiếu học tập</span>
+                </div>
+                <p className="text-[11px] font-medium text-slate-600 leading-snug">
+                  Thư mục phiếu học tập (nội dung đang bỏ trống).
                 </p>
               </div>
             </div>

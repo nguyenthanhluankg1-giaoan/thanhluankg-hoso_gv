@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar, KhdhTabId } from './Navbar';
 import { DocumentPreview } from './DocumentPreview';
+import { WorksheetsTab } from './WorksheetsTab';
 import { PpctManager } from './PpctManager';
 import { TkbManager } from './TkbManager';
 import { AiAssistantTab } from './AiAssistantTab';
@@ -112,7 +113,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
   const [activeTab, setActiveTab] = useState<KhdhTabId>(() => {
     try {
       const saved = localStorage.getItem(keys.ACTIVE_TAB) || localStorage.getItem('khdh_active_tab_v1');
-      if (saved && ['document', 'ppct', 'tkb', 'ai', 'settings'].includes(saved)) {
+      if (saved && ['document', 'worksheets', 'ppct', 'tkb', 'ai', 'settings'].includes(saved)) {
         return saved as KhdhTabId;
       }
     } catch {}
@@ -121,7 +122,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
 
   useEffect(() => {
     const handleCustomTabChange = (e: any) => {
-      if (e.detail && ['document', 'ppct', 'tkb', 'ai', 'settings'].includes(e.detail)) {
+      if (e.detail && ['document', 'worksheets', 'ppct', 'tkb', 'ai', 'settings'].includes(e.detail)) {
         setActiveTab(e.detail);
       }
     };
@@ -282,6 +283,8 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
             teacherType={effectiveTeacherType}
           />
         )}
+
+        {activeTab === 'worksheets' && <WorksheetsTab />}
 
         {activeTab === 'ppct' && (
           <PpctManager

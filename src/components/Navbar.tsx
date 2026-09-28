@@ -1,7 +1,7 @@
 import React from 'react';
-import { FileText, Calendar, BookOpen, Sparkles, Settings, CalendarDays } from 'lucide-react';
+import { FileText, Calendar, BookOpen, Sparkles, Settings, CalendarDays, FileCheck } from 'lucide-react';
 
-export type KhdhTabId = 'document' | 'ppct' | 'tkb' | 'ai' | 'settings';
+export type KhdhTabId = 'document' | 'worksheets' | 'ppct' | 'tkb' | 'ai' | 'settings';
 
 interface NavbarProps {
   activeTab: KhdhTabId;
@@ -27,6 +27,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       id: 'document' as KhdhTabId,
       label: isGvcn ? 'Lịch báo giảng' : 'Kế hoạch dạy học',
       icon: isGvcn ? CalendarDays : FileText
+    },
+    {
+      id: 'worksheets' as KhdhTabId,
+      label: 'Phiếu học tập',
+      icon: FileCheck
     },
     {
       id: 'ppct' as KhdhTabId,
