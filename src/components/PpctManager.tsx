@@ -212,78 +212,43 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
             'Tên bài dạy': 'Bài 1. Mùa thu của em (Tiết 2 - LTVC: Từ ngữ chỉ sự vật)',
             'Nội dung tích hợp / Điều chỉnh': 'Thực hành mở rộng vốn từ',
             'Ghi chú': 'Luyện tập'
-          },
-          {
-            'STT': 3,
-            'Khối lớp': 4,
-            'Môn học': 'Lịch sử và Địa lí',
-            'Phân môn': 'Lịch sử',
-            'Tuần': 1,
-            'Tiết theo PPCT': 1,
-            'Tên bài dạy': 'Bài 1. Làm quen với phương tiện học tập môn Lịch sử và Địa lí',
-            'Nội dung tích hợp / Điều chỉnh': '[CĐS] Khai thác bản đồ số',
-            'Ghi chú': 'Tiết 1 Lịch sử'
-          },
-          {
-            'STT': 4,
-            'Khối lớp': 5,
-            'Môn học': 'Lịch sử và Địa lí',
-            'Phân môn': 'Địa lí',
-            'Tuần': 1,
-            'Tiết theo PPCT': 1,
-            'Tên bài dạy': 'Bài 1. Vị trí địa lí, lãnh thổ, biển đảo Việt Nam',
-            'Nội dung tích hợp / Điều chỉnh': '[GDQP] Giáo dục chủ quyền biển đảo',
-            'Ghi chú': 'Tiết 1 Địa lí'
           }
         ]
       : [
           {
             'STT': 1,
             'Khối lớp': 3,
-            'Môn học': 'Tiếng Anh',
+            'Môn học': 'Tin học',
             'Tuần': 1,
             'Tiết theo PPCT': 1,
-            'Tên bài dạy': 'Unit 1: Hello - Lesson 1',
-            'Nội dung tích hợp / Điều chỉnh': '[NLS] Giao tiếp chào hỏi cơ bản',
+            'Tên bài dạy': 'Bài 1. Thông tin và quyết định (Tiết 1)',
+            'Nội dung tích hợp / Điều chỉnh': '[CĐS] Nhận biết thông tin số',
             'Ghi chú': 'Tiết 1'
           },
           {
             'STT': 2,
             'Khối lớp': 3,
-            'Môn học': 'Tiếng Anh',
+            'Môn học': 'Tin học',
             'Tuần': 1,
             'Tiết theo PPCT': 2,
-            'Tên bài dạy': 'Unit 1: Hello - Lesson 2',
-            'Nội dung tích hợp / Điều chỉnh': '[CĐS] Luyện phát âm qua app',
+            'Tên bài dạy': 'Bài 1. Thông tin và quyết định (Tiết 2)',
+            'Nội dung tích hợp / Điều chỉnh': '[STEM] Thực hành thiết kế sản phẩm số',
             'Ghi chú': 'Tiết 2'
           }
         ];
 
     const worksheet = XLSX.utils.json_to_sheet(sampleRows);
-    if (isGvcn) {
-      worksheet['!cols'] = [
-        { wch: 6 },
-        { wch: 10 },
-        { wch: 18 },
-        { wch: 22 },
-        { wch: 8 },
-        { wch: 16 },
-        { wch: 45 },
-        { wch: 45 },
-        { wch: 25 }
-      ];
-    } else {
-      worksheet['!cols'] = [
-        { wch: 6 },
-        { wch: 10 },
-        { wch: 18 },
-        { wch: 8 },
-        { wch: 16 },
-        { wch: 45 },
-        { wch: 45 },
-        { wch: 25 }
-      ];
-    }
+    worksheet['!cols'] = [
+      { wch: 6 },
+      { wch: 10 },
+      { wch: 18 },
+      ...(isGvcn ? [{ wch: 22 }] : []),
+      { wch: 8 },
+      { wch: 16 },
+      { wch: 45 },
+      { wch: 45 },
+      { wch: 25 }
+    ];
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Mau_Phan_Phoi_Chuong_Trinh');
@@ -292,7 +257,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
 
   const handleExportExcel = () => {
     const data = filteredList.map((item, idx) => {
-      const row: Record<string, any> = {
+      const row: any = {
         STT: idx + 1,
         'Khối lớp': item.grade,
         'Môn học': item.subject
@@ -473,7 +438,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder={isGvcn ? 'Tìm bài dạy, phân môn, tích hợp...' : 'Tìm bài dạy, tích hợp...'}
+                placeholder={isGvcn ? 'Tìm bài dạy, phân môn, tích hợp...' : 'Tìm bài dạy, nội dung tích hợp...'}
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
@@ -798,7 +763,7 @@ export const PpctManager: React.FC<PpctManagerProps> = ({
                 </div>
               </div>
 
-              {/* Phân môn selector based on Grade & Subject (Chỉ hiển thị cho GVCN khi có phân môn) */}
+              {/* Phân môn selector based on Grade & Subject (Chỉ hiển thị đối với GVCN khi có phân môn) */}
               {isGvcn && (availableSubSubjects.length > 0 || formSubject === 'Tiếng Việt') && (
                 <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
                   <div className="flex items-center justify-between mb-1">

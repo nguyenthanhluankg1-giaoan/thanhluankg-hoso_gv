@@ -175,6 +175,8 @@ export interface AppSettings {
 export interface AppState {
   version: number;
   ownerUserId?: string; // ID của tài khoản giáo viên sở hữu không gian làm việc này
+  ownerName?: string; // Tên giáo viên sở hữu
+  updatedAt?: string; // Thời gian cập nhật ISO string
   activeClassId: string;
   currentPage: string;
   teacher: TeacherProfile;

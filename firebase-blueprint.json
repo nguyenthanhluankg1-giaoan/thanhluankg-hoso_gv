@@ -88,6 +88,19 @@
         "schoolName": { "type": "string" },
         "updatedAt": { "type": "string" }
       }
+    },
+    "ClassesData": {
+      "title": "Classes and Students Data",
+      "description": "Classes and student roster per teacher",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "classes": { "type": "array" },
+        "students": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "updatedAt"]
     }
   },
   "firestore": {
@@ -98,6 +111,10 @@
     "/workspaces/{workspaceId}": {
       "schema": "Workspace",
       "description": "Collection of teacher workspace application states"
+    },
+    "/classes_data/{userId}": {
+      "schema": "ClassesData",
+      "description": "Dedicated collection for teacher classes and student lists"
     },
     "/khdh_data/{userId}": {
       "schema": "KhdhData",

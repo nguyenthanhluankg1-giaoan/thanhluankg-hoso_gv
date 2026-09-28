@@ -11,6 +11,8 @@ import { db, auth } from '../firebase';
 import {
   UserAccount,
   AppState,
+  ClassInfo,
+  Student,
   SchoolConfig,
   PpctItem,
   TimetableSlot,
@@ -19,7 +21,7 @@ import {
   ConfiguredClass,
   ContactInfo
 } from '../types';
-import { getDefaultState } from '../utils/helpers';
+import { getDefaultState, getDefaultStateForUser } from '../utils/helpers';
 
 // Operation types for error handling
 enum OperationType {
@@ -212,28 +214,46 @@ export function getUserWorkspaceKey(user?: UserAccount | null | string): string 
 }
 
 /**
- * Helper to recursively remove empty string keys from an object.
- * Firestore does not allow empty string keys in maps.
+ * Helper to recursively sanitize and clean data for Firestore:
+ * 1. Strips all `undefined` properties (Firestore setDoc strictly throws if any property is undefined)
+ * 2. Strips empty string keys (Firestore disallows empty string keys in maps)
+ * 3. Converts NaN to 0
  */
-function sanitizeFirestoreData(data: any): any {
+export function sanitizeFirestoreData(data: any): any {
+  if (data === undefined || data === null) {
+    return null;
+  }
+
   if (Array.isArray(data)) {
-    return data.map(sanitizeFirestoreData);
-  } else if (data !== null && typeof data === 'object' && !(data instanceof Date)) {
-    const sanitized: any = {};
+    return data
+      .map(sanitizeFirestoreData)
+      .filter((item) => item !== undefined);
+  }
+
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const sanitized: Record<string, any> = {};
     for (const key in data) {
-      if (key === '') {
-        console.warn('Stripping empty string key from Firestore data');
+      if (key === '' || data[key] === undefined) {
         continue;
       }
-      sanitized[key] = sanitizeFirestoreData(data[key]);
+      const val = sanitizeFirestoreData(data[key]);
+      if (val !== undefined) {
+        sanitized[key] = val;
+      }
     }
     return sanitized;
   }
+
+  if (typeof data === 'number' && isNaN(data)) {
+    return 0;
+  }
+
   return data;
 }
 
 /**
  * Save Classroom App State to Firestore in isolated workspace
+ * Also creates/updates dedicated classes_data backup
  */
 export async function saveAppStateToFirestore(
   key: string,
@@ -241,46 +261,142 @@ export async function saveAppStateToFirestore(
   meta?: { userId?: string; teacherName?: string; role?: string }
 ): Promise<boolean> {
   const path = `workspaces/${key}`;
+  const nowIso = new Date().toISOString();
+  const userId = meta?.userId || state.ownerUserId || '';
+
   try {
     const docRef = doc(db, 'workspaces', key);
-    const sanitizedState = sanitizeFirestoreData(state);
-    
-    await setDoc(docRef, {
-      ...sanitizedState,
-      ownerUserId: meta?.userId || state.ownerUserId || '',
-      ownerName: meta?.teacherName || state.teacher?.name || '',
-      updatedAt: new Date().toISOString()
-    });
+    const stateToSave = {
+      ...state,
+      ownerUserId: userId,
+      ownerName: meta?.teacherName || state.ownerName || state.teacher?.name || '',
+      updatedAt: nowIso
+    };
+
+    const sanitizedState = sanitizeFirestoreData(stateToSave);
+    await setDoc(docRef, sanitizedState);
+
+    // Concurrently maintain a lightweight, dedicated backup for classes and students
+    if (userId) {
+      try {
+        const classesDocRef = doc(db, 'classes_data', userId);
+        await setDoc(classesDocRef, {
+          userId,
+          ownerName: meta?.teacherName || state.ownerName || state.teacher?.name || '',
+          classes: sanitizeFirestoreData(state.classes || []),
+          students: sanitizeFirestoreData(state.students || []),
+          updatedAt: nowIso
+        });
+      } catch (backupErr) {
+        console.warn('Dedicated classes_data backup notice:', backupErr);
+      }
+    }
+
     return true;
   } catch (err: any) {
     if (err?.code === 'unavailable' || err?.message?.includes('unavailable') || err?.message?.includes('offline')) {
       console.warn('Firestore unavailable, state saved to local cache.');
       return false;
     }
-    console.warn('Save app state Firestore notice:', err?.message || err);
+    console.error('Save app state Firestore error:', err?.message || err);
+    return false;
+  }
+}
+
+/**
+ * Direct helper to instantly save Classes & Students to Firebase
+ */
+export async function syncClassesAndStudentsToFirestore(
+  userId: string,
+  classes: ClassInfo[],
+  students: Student[],
+  meta?: { teacherName?: string }
+): Promise<boolean> {
+  if (!userId) return false;
+  const nowIso = new Date().toISOString();
+
+  try {
+    // 1. Save to dedicated classes_data collection
+    const classesDocRef = doc(db, 'classes_data', userId);
+    await setDoc(classesDocRef, {
+      userId,
+      ownerName: meta?.teacherName || '',
+      classes: sanitizeFirestoreData(classes || []),
+      students: sanitizeFirestoreData(students || []),
+      updatedAt: nowIso
+    });
+
+    // 2. Also update in teacher's workspace if it exists
+    const wsKey = `workspace_${userId}`;
+    const wsDocRef = doc(db, 'workspaces', wsKey);
+    const snap = await getDoc(wsDocRef);
+    if (snap.exists()) {
+      const existing = snap.data();
+      await setDoc(wsDocRef, {
+        ...existing,
+        classes: sanitizeFirestoreData(classes || []),
+        students: sanitizeFirestoreData(students || []),
+        updatedAt: nowIso
+      });
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Direct syncClassesAndStudentsToFirestore error:', err);
     return false;
   }
 }
 
 /**
  * Load Classroom App State from Firestore in isolated workspace
+ * With automatic recovery of classes and students from classes_data if needed
  */
 export async function loadAppStateFromFirestore(
   key: string,
   user?: UserAccount | null
 ): Promise<AppState | null> {
   try {
+    let cloudState: AppState | null = null;
+
     // 1. Try loading from isolated workspaces collection
     const docRef = doc(db, 'workspaces', key);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const data = snap.data() as AppState;
       if (data && data.version) {
-        return data;
+        cloudState = data;
       }
     }
 
-    return null;
+    // 2. Also check if classes_data has classes/students to recover
+    const targetUserId = user?.id || (key.startsWith('workspace_') ? key.replace('workspace_', '') : '');
+    if (targetUserId) {
+      try {
+        const classesDocRef = doc(db, 'classes_data', targetUserId);
+        const classesSnap = await getDoc(classesDocRef);
+        if (classesSnap.exists()) {
+          const cData = classesSnap.data();
+          if (cData && Array.isArray(cData.classes) && cData.classes.length > 0) {
+            if (!cloudState) {
+              cloudState = getDefaultStateForUser(user);
+            }
+            // If cloudState has no classes, or classes_data is newer, use classes_data
+            const cloudClassesCount = cloudState.classes?.length || 0;
+            if (cloudClassesCount === 0) {
+              cloudState.classes = cData.classes;
+              cloudState.students = Array.isArray(cData.students) ? cData.students : [];
+              if (cData.classes[0]?.id && (!cloudState.activeClassId || cloudState.activeClassId === 'default_class')) {
+                cloudState.activeClassId = cData.classes[0].id;
+              }
+            }
+          }
+        }
+      } catch (backupReadErr) {
+        console.warn('Notice checking classes_data fallback:', backupReadErr);
+      }
+    }
+
+    return cloudState;
   } catch (err) {
     console.error('Failed to load classroom state from Firestore:', err);
     return null;

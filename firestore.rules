@@ -15,6 +15,14 @@ service cloud.firestore {
     // Workspaces collection
     match /workspaces/{workspaceId} {
       allow read, write: if true;
+      match /{allSubpaths=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Classes and student rosters collection
+    match /classes_data/{userId} {
+      allow read, write: if true;
     }
 
     // KHDH Data collection

@@ -1,20 +1,24 @@
 import React, { useState, useRef } from 'react';
-import { School, Plus, Users, Edit3, Trash2, CheckCircle2, ArrowRight, Camera, Upload, X } from 'lucide-react';
-import { AppState, ClassInfo } from '../../types';
-import { uid } from '../../utils/helpers';
+import { School, Plus, Users, Edit3, Trash2, CheckCircle2, ArrowRight, Camera, Upload, X, Cloud, RefreshCw } from 'lucide-react';
+import { AppState, ClassInfo, UserAccount } from '../../types';
+import { uid, compressImageFile } from '../../utils/helpers';
 
 interface ClassesTabProps {
   state: AppState;
   onUpdateState: (updater: (prev: AppState) => AppState) => void;
   onSwitchClass?: (id: string) => void;
   onNavigate?: (page: string) => void;
+  currentUser?: UserAccount | null;
+  onForceSync?: (updatedState: AppState) => Promise<boolean>;
 }
 
 export const ClassesTab: React.FC<ClassesTabProps> = ({
   state,
   onUpdateState,
   onSwitchClass,
-  onNavigate
+  onNavigate,
+  currentUser,
+  onForceSync
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassInfo | null>(null);
@@ -23,7 +27,14 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
   const [formYear, setFormYear] = useState('2026 - 2027');
   const [formBannerUrl, setFormBannerUrl] = useState('');
   const [formSlogan, setFormSlogan] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const openModal = (cls?: ClassInfo) => {
     if (cls) {
@@ -44,45 +55,68 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
     setModalOpen(true);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 8 * 1024 * 1024) {
-      alert('Dung lượng hình ảnh tối đa là 8MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Dung lượng hình ảnh tối đa là 10MB.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setFormBannerUrl(event.target.result as string);
+    try {
+      // Compress banner to max 800px width/height to guarantee Firestore document stays well within 1MB limit
+      const compressed = await compressImageFile(file, 800, 0.75);
+      if (compressed) {
+        setFormBannerUrl(compressed);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error compressing banner:', err);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  const handleSaveClass = (e: React.FormEvent) => {
+  const handleManualSync = async () => {
+    if (!onForceSync) return;
+    setIsSyncing(true);
+    const ok = await onForceSync(state);
+    setIsSyncing(false);
+    if (ok) {
+      showToast('Đã đồng bộ danh sách lớp học lên Cloud Firestore thành công!');
+    } else {
+      showToast('Đang lưu ở bộ nhớ đệm, sẽ tự động đồng bộ khi có mạng.');
+    }
+  };
+
+  const handleSaveClass = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = formName.trim();
     if (!trimmedName) return;
 
+    let nextState: AppState;
+
     if (editingClass) {
-      onUpdateState((prev) => ({
-        ...prev,
-        classes: prev.classes.map((c) =>
-          c.id === editingClass.id
-            ? {
-                ...c,
-                name: trimmedName,
-                grade: formGrade,
-                year: formYear,
-                bannerUrl: formBannerUrl.trim() || undefined,
-                slogan: formSlogan.trim() || undefined
-              }
-            : c
-        )
-      }));
+      const updatedClasses = state.classes.map((c) =>
+        c.id === editingClass.id
+          ? {
+              ...c,
+              name: trimmedName,
+              grade: formGrade,
+              year: formYear,
+              bannerUrl: formBannerUrl.trim() || '',
+              slogan: formSlogan.trim() || ''
+            }
+          : c
+      );
+
+      nextState = {
+        ...state,
+        classes: updatedClasses
+      };
+      onUpdateState(() => nextState);
+      showToast(`Đã lưu thay đổi lớp "${trimmedName}" lên Cloud Firestore!`);
     } else {
       const newId = uid('class');
       const newClass: ClassInfo = {
@@ -91,25 +125,32 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
         grade: formGrade,
         year: formYear,
         color: '#0d9488',
-        bannerUrl: formBannerUrl.trim() || undefined,
-        slogan: formSlogan.trim() || undefined
+        bannerUrl: formBannerUrl.trim() || '',
+        slogan: formSlogan.trim() || ''
       };
 
-      onUpdateState((prev) => ({
-        ...prev,
-        classes: [...prev.classes, newClass],
+      nextState = {
+        ...state,
+        classes: [...state.classes, newClass],
         seating: {
-          ...prev.seating,
+          ...state.seating,
           [newId]: { lanes: 4, seats: 16, mode: '2d', assignments: {} }
         },
         activeClassId: newId
-      }));
+      };
+      onUpdateState(() => nextState);
+      showToast(`Đã tạo thành công lớp "${trimmedName}" và lưu trữ trên Cloud Firestore!`);
     }
 
     setModalOpen(false);
+
+    // Instant direct sync to Firestore so data is saved immediately
+    if (onForceSync) {
+      await onForceSync(nextState);
+    }
   };
 
-  const handleDeleteClass = (id: string) => {
+  const handleDeleteClass = async (id: string) => {
     if (state.classes.length <= 1) {
       alert('Bạn phải giữ lại ít nhất một lớp học trong hệ thống.');
       return;
@@ -124,23 +165,28 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
       return;
     }
 
-    onUpdateState((prev) => {
-      const remainingClasses = prev.classes.filter((c) => c.id !== id);
-      const nextActiveId =
-        prev.activeClassId === id ? remainingClasses[0].id : prev.activeClassId;
+    const remainingClasses = state.classes.filter((c) => c.id !== id);
+    const nextActiveId =
+      state.activeClassId === id ? remainingClasses[0].id : state.activeClassId;
 
-      const newSeating = { ...prev.seating };
-      delete newSeating[id];
+    const newSeating = { ...state.seating };
+    delete newSeating[id];
 
-      return {
-        ...prev,
-        classes: remainingClasses,
-        students: prev.students.filter((s) => s.classId !== id),
-        transactions: prev.transactions.filter((tx) => tx.classId !== id),
-        seating: newSeating,
-        activeClassId: nextActiveId
-      };
-    });
+    const nextState: AppState = {
+      ...state,
+      classes: remainingClasses,
+      students: state.students.filter((s) => s.classId !== id),
+      transactions: state.transactions.filter((tx) => tx.classId !== id),
+      seating: newSeating,
+      activeClassId: nextActiveId
+    };
+
+    onUpdateState(() => nextState);
+    showToast(`Đã xóa lớp "${cls?.name}" và cập nhật lên Cloud Firestore.`);
+
+    if (onForceSync) {
+      await onForceSync(nextState);
+    }
   };
 
   return (
@@ -155,17 +201,38 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
             <h2 className="text-xl font-black text-slate-800">Quản lý Danh sách Lớp học</h2>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Tạo thêm các lớp giảng dạy mới hoặc chuyển đổi nhanh giữa các lớp.
+            Tạo thêm các lớp giảng dạy mới hoặc chuyển đổi nhanh giữa các lớp. Dữ liệu được lưu trữ trực tuyến trên Firebase.
           </p>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm shadow-md shadow-teal-600/20 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tạo lớp học mới</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {onForceSync && (
+            <button
+              type="button"
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs border border-teal-200 shadow-2xs transition-all cursor-pointer"
+              title="Đồng bộ thủ công danh sách lớp lên Cloud Firestore"
+            >
+              <Cloud className={`w-4 h-4 text-teal-600 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Firestore'}</span>
+            </button>
+          )}
+          <button
+            onClick={() => openModal()}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm shadow-md shadow-teal-600/20 transition-all self-start sm:self-auto cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tạo lớp học mới</span>
+          </button>
+        </div>
       </div>
+
+      {toastMessage && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-900 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm animate-in fade-in duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Grid of classes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

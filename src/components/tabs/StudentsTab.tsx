@@ -21,10 +21,12 @@ import {
   Eye,
   Filter,
   FileSpreadsheet,
-  Download
+  Download,
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { AppState, Student, SeatingConfig } from '../../types';
+import { AppState, Student, SeatingConfig, UserAccount } from '../../types';
 import { Avatar } from '../Avatar';
 import { uid, compressImageFile, removeVietnameseTones } from '../../utils/helpers';
 import { playCelebration } from '../../utils/audio';
@@ -33,6 +35,8 @@ interface StudentsTabProps {
   state: AppState;
   onUpdateState: (updater: (prev: AppState) => AppState) => void;
   onNavigate: (page: string) => void;
+  currentUser?: UserAccount | null;
+  onForceSync?: (updatedState: AppState) => Promise<boolean>;
 }
 
 interface BatchFileMatch {
@@ -46,7 +50,9 @@ interface BatchFileMatch {
 export const StudentsTab: React.FC<StudentsTabProps> = ({
   state,
   onUpdateState,
-  onNavigate
+  onNavigate,
+  currentUser,
+  onForceSync
 }) => {
   const activeClass = state.classes.find((c) => c.id === state.activeClassId) || state.classes[0];
   const students = state.students.filter((s) => s.classId === state.activeClassId);
@@ -61,6 +67,18 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
   const cardFileInputRef = useRef<HTMLInputElement>(null);
   const [targetStudentForUpload, setTargetStudentForUpload] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleManualSync = async () => {
+    if (!onForceSync) return;
+    setIsSyncing(true);
+    const ok = await onForceSync(state);
+    setIsSyncing(false);
+    if (ok) {
+      setToastMessage('Đã đồng bộ danh sách học sinh lên Cloud Firestore thành công!');
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+  };
 
   // Enlarged photo preview modal
   const [previewStudent, setPreviewStudent] = useState<Student | null>(null);
@@ -253,14 +271,18 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
 
       const appliedCount = Object.keys(updates).length;
       if (appliedCount > 0) {
-        onUpdateState((prev) => ({
-          ...prev,
-          students: prev.students.map((s) =>
+        const nextState: AppState = {
+          ...state,
+          students: state.students.map((s) =>
             updates[s.id] ? { ...s, avatar: updates[s.id] } : s
           )
-        }));
+        };
+        onUpdateState(() => nextState);
+        if (onForceSync) {
+          onForceSync(nextState);
+        }
         playCelebration();
-        setToastMessage(`Đã cập nhật ảnh đại diện thành công cho ${appliedCount} học sinh!`);
+        setToastMessage(`Đã cập nhật ảnh đại diện cho ${appliedCount} học sinh và lưu lên Cloud Firestore!`);
         setTimeout(() => setToastMessage(null), 4000);
       }
 
@@ -275,28 +297,32 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
     }
   };
 
-  const handleSaveStudent = (e: React.FormEvent) => {
+  const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = formName.trim();
     if (!name) return;
 
+    let nextState: AppState;
+
     if (editingStudent) {
-      onUpdateState((prev) => ({
-        ...prev,
-        students: prev.students.map((s) =>
-          s.id === editingStudent.id
-            ? {
-                ...s,
-                name,
-                gender: formGender,
-                coins: formCoins,
-                avatar: formAvatar,
-                note: formNote.trim(),
-                favorite: formFavorite
-              }
-            : s
+      const updatedStudent: Student = {
+        ...editingStudent,
+        name,
+        gender: formGender,
+        coins: formCoins,
+        avatar: formAvatar || '',
+        note: formNote.trim() || '',
+        favorite: !!formFavorite
+      };
+
+      nextState = {
+        ...state,
+        students: state.students.map((s) =>
+          s.id === editingStudent.id ? updatedStudent : s
         )
-      }));
+      };
+      onUpdateState(() => nextState);
+      setToastMessage(`Đã cập nhật học sinh "${name}" lên Cloud Firestore!`);
     } else {
       const newStudent: Student = {
         id: uid('s'),
@@ -304,43 +330,56 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
         name,
         gender: formGender,
         coins: formCoins,
-        avatar: formAvatar,
-        note: formNote.trim(),
-        favorite: formFavorite
+        avatar: formAvatar || '',
+        note: formNote.trim() || '',
+        favorite: !!formFavorite
       };
 
-      onUpdateState((prev) => ({
-        ...prev,
-        students: [...prev.students, newStudent]
-      }));
+      nextState = {
+        ...state,
+        students: [...state.students, newStudent]
+      };
+      onUpdateState(() => nextState);
+      setToastMessage(`Đã thêm học sinh "${name}" và lưu trữ trên Cloud Firestore!`);
     }
 
     setStudentModalOpen(false);
+    setTimeout(() => setToastMessage(null), 3500);
+
+    if (onForceSync) {
+      await onForceSync(nextState);
+    }
   };
 
-  const handleDeleteStudent = (id: string) => {
+  const handleDeleteStudent = async (id: string) => {
     const s = state.students.find((item) => item.id === id);
     if (!window.confirm(`Xóa học sinh "${s?.name}" khỏi lớp?`)) return;
 
-    onUpdateState((prev) => {
-      const updatedSeating: Record<string, SeatingConfig> = { ...prev.seating };
-      Object.values(updatedSeating).forEach((cfg: SeatingConfig) => {
-        if (cfg && cfg.assignments) {
-          Object.keys(cfg.assignments).forEach((k) => {
-            const numK = Number(k);
-            if (cfg.assignments[numK] === id) {
-              delete cfg.assignments[numK];
-            }
-          });
-        }
-      });
-
-      return {
-        ...prev,
-        students: prev.students.filter((item) => item.id !== id),
-        seating: updatedSeating
-      };
+    const updatedSeating: Record<string, SeatingConfig> = { ...state.seating };
+    Object.values(updatedSeating).forEach((cfg: SeatingConfig) => {
+      if (cfg && cfg.assignments) {
+        Object.keys(cfg.assignments).forEach((k) => {
+          const numK = Number(k);
+          if (cfg.assignments[numK] === id) {
+            delete cfg.assignments[numK];
+          }
+        });
+      }
     });
+
+    const nextState: AppState = {
+      ...state,
+      students: state.students.filter((item) => item.id !== id),
+      seating: updatedSeating
+    };
+
+    onUpdateState(() => nextState);
+    setToastMessage(`Đã xóa học sinh "${s?.name}" và cập nhật Cloud Firestore.`);
+    setTimeout(() => setToastMessage(null), 3500);
+
+    if (onForceSync) {
+      await onForceSync(nextState);
+    }
   };
 
   const handleToggleFavorite = (id: string) => {
@@ -394,7 +433,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
     setCoinModalOpen(false);
   };
 
-  const handleBulkPaste = (e: React.FormEvent) => {
+  const handleBulkPaste = async (e: React.FormEvent) => {
     e.preventDefault();
     const lines = bulkText
       .split(/\r?\n/)
@@ -414,13 +453,20 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
       note: ''
     }));
 
-    onUpdateState((prev) => ({
-      ...prev,
-      students: [...prev.students, ...newStudents]
-    }));
+    const nextState: AppState = {
+      ...state,
+      students: [...state.students, ...newStudents]
+    };
 
+    onUpdateState(() => nextState);
     setBulkText('');
     setPasteModalOpen(false);
+    setToastMessage(`Đã thêm ${newStudents.length} học sinh và lưu trữ trên Cloud Firestore!`);
+    setTimeout(() => setToastMessage(null), 3500);
+
+    if (onForceSync) {
+      await onForceSync(nextState);
+    }
   };
 
   const handleDownloadSampleExcel = () => {
@@ -469,7 +515,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
@@ -499,12 +545,17 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
         }).filter((s) => s.name.length > 0);
 
         if (newStudents.length > 0) {
-          onUpdateState((prev) => ({
-            ...prev,
-            students: [...prev.students, ...newStudents]
-          }));
-          setToastMessage(`Đã nhập thành công ${newStudents.length} học sinh từ file Excel!`);
+          const nextState: AppState = {
+            ...state,
+            students: [...state.students, ...newStudents]
+          };
+          onUpdateState(() => nextState);
+          setToastMessage(`Đã nhập thành công ${newStudents.length} học sinh và lưu trữ trên Cloud Firestore!`);
           setTimeout(() => setToastMessage(null), 3500);
+
+          if (onForceSync) {
+            await onForceSync(nextState);
+          }
         } else {
           alert('Không tìm thấy cột "Họ và tên" hợp lệ trong file Excel!');
         }
@@ -573,6 +624,19 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {onForceSync && (
+            <button
+              type="button"
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs border border-teal-200 shadow-2xs transition-all cursor-pointer"
+              title="Đồng bộ thủ công danh sách học sinh lên Cloud Firestore"
+            >
+              <Cloud className={`w-4 h-4 text-teal-600 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Firestore'}</span>
+            </button>
+          )}
+
           {/* Batch upload button */}
           <button
             onClick={() => setBatchModalOpen(true)}

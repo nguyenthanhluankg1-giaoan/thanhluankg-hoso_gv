@@ -116,8 +116,21 @@ export default function App() {
           const wsKey = getUserWorkspaceKey(savedUser);
           const cloudState = await loadAppStateFromFirestore(wsKey, savedUser);
           if (cloudState && active) {
-            setState(cloudState);
-            saveStoredState(savedUser, cloudState);
+            // Safe reconciliation: do not wipe out existing local classes/students with empty cloud state
+            const localHasClasses = state.classes && state.classes.length > 0;
+            const cloudHasClasses = cloudState.classes && cloudState.classes.length > 0;
+
+            if (localHasClasses && !cloudHasClasses) {
+              console.log('Preserving local classes and syncing to Cloud Firestore...');
+              saveAppStateToFirestore(wsKey, state, {
+                userId: savedUser.id,
+                teacherName: savedUser.name,
+                role: savedUser.role
+              }).catch(console.warn);
+            } else {
+              setState(cloudState);
+              saveStoredState(savedUser, cloudState);
+            }
           }
         }
       } catch (err) {
@@ -137,23 +150,43 @@ export default function App() {
 
     saveStoredState(currentUser, state);
     const now = new Date();
-    setSavedTime(
-      now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    );
 
     const wsKey = getUserWorkspaceKey(currentUser);
-    const timer = setTimeout(() => {
-      saveAppStateToFirestore(wsKey, state, {
-        userId: currentUser.id,
-        teacherName: currentUser.name,
-        role: currentUser.role
-      }).catch((err) =>
-        console.warn('Debounced firestore save error:', err)
-      );
-    }, 1200);
+    const timer = setTimeout(async () => {
+      try {
+        const ok = await saveAppStateToFirestore(wsKey, state, {
+          userId: currentUser.id,
+          teacherName: currentUser.name,
+          role: currentUser.role
+        });
+        if (ok) {
+          const syncTime = new Date();
+          setSavedTime(
+            syncTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          );
+        }
+      } catch (err) {
+        console.warn('Debounced firestore save error:', err);
+      }
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [state, currentUser]);
+
+  const handleForceSync = async (newState: AppState): Promise<boolean> => {
+    if (!currentUser) return false;
+    saveStoredState(currentUser, newState);
+    const now = new Date();
+    setSavedTime(
+      now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    );
+    const wsKey = getUserWorkspaceKey(currentUser);
+    return await saveAppStateToFirestore(wsKey, newState, {
+      userId: currentUser.id,
+      teacherName: currentUser.name,
+      role: currentUser.role
+    });
+  };
 
   const handleUpdateSystemLogo = async (logo: string) => {
     setSystemLogo(logo);
@@ -506,6 +539,8 @@ export default function App() {
               onUpdateState={handleUpdateState}
               onSwitchClass={(id) => handleUpdateState((prev) => ({ ...prev, activeClassId: id }))}
               onNavigate={handleNavigate}
+              currentUser={currentUser}
+              onForceSync={handleForceSync}
             />
           )}
 
@@ -514,6 +549,8 @@ export default function App() {
               state={state}
               onUpdateState={handleUpdateState}
               onNavigate={handleNavigate}
+              currentUser={currentUser}
+              onForceSync={handleForceSync}
             />
           )}
 
