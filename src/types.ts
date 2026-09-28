@@ -152,6 +152,8 @@ export interface QuestionFolder {
   color?: string; // HEX color or tailwind color code
   createdAt?: string;
   subject?: string; // Môn học áp dụng (Tin học, Công nghệ, Toán...)
+  grade?: number | string; // Khối lớp áp dụng (1, 2, 3, 4, 5 hoặc 'all')
+  classId?: string; // Lớp học áp dụng cụ thể (classId hoặc 'all')
 }
 
 export interface QuizQuestion {
@@ -160,6 +162,8 @@ export interface QuizQuestion {
   options: string[]; // 4 options
   correctIndex: number; // 0, 1, 2, 3
   subject?: string;
+  grade?: number | string; // Khối lớp áp dụng: 1, 2, 3, 4, 5 hoặc 'all' (Tất cả các khối)
+  classId?: string; // Lớp học cụ thể: classId hoặc 'all'
   folderId?: string; // ID of QuestionFolder
   rewardCoins?: number; // default 2 xu
   explanation?: string;
@@ -203,6 +207,8 @@ export interface AppState {
   wheelQuizEnabled?: boolean;
   wheelQuizTimer?: number; // seconds, e.g. 15
   wheelQuizSubject?: string; // 'all' or specific subject
+  wheelQuizGrade?: string | number; // 'auto' (tự động theo lớp đang chọn), 'all' (tất cả các khối), 1, 2, 3, 4, 5
+  wheelQuizClassId?: string; // 'all' hoặc classId cụ thể
   wheelQuizFolderId?: string; // 'all', 'uncategorized', or specific folder ID
   wheelQuizShuffleOptions?: boolean; // Tự động đảo thứ tự các đáp án A B C D khi hiển thị
   usedQuizQuestionIds?: string[]; // IDs of questions already asked, to ensure no duplicates

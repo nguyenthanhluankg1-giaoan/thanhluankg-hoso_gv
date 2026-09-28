@@ -379,7 +379,8 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdow
 export async function generateQuizWithGemini(params: {
   topic: string;
   subject: string;
-  grade?: string;
+  grade?: string | number;
+  classId?: string;
   numQuestions: number;
   folderId?: string;
   attachedFiles?: UploadedFileInfo[];
@@ -415,7 +416,8 @@ export async function generateQuizWithGemini(params: {
       }
     }
 
-    const promptText = `Hãy là một chuyên gia giáo dục xuất sắc. Dựa vào nội dung bài học "${params.topic}" (Môn ${params.subject}) và tài liệu/trang sách đính kèm (nếu có), hãy biên soạn đúng ĐỦ ${params.numQuestions} CÂU HỎI TRẮC NGHIỆM hay, chuẩn kiến thức sư phạm.
+    const gradeText = params.grade && params.grade !== 'all' ? `cho học sinh Tiểu học Khối ${params.grade}` : 'cho học sinh Tiểu học';
+    const promptText = `Hãy là một chuyên gia giáo dục xuất sắc. Dựa vào nội dung bài học "${params.topic}" (Môn ${params.subject} ${gradeText}) và tài liệu/trang sách đính kèm (nếu có), hãy biên soạn đúng ĐỦ ${params.numQuestions} CÂU HỎI TRẮC NGHIỆM hay, chuẩn kiến thức sư phạm và phù hợp lứa tuổi.
 
 Yêu cầu mỗi câu hỏi:
 - Nội dung câu hỏi rõ ràng, bám sát bài dạy "${params.topic}".
@@ -458,6 +460,8 @@ Trả về DUY NHẤT một mảng JSON hợp lệ các câu hỏi trắc nghi�
                 : ['Đúng', 'Sai', 'Không xác định', 'Cả A và B'],
               correctIndex: typeof item.correctIndex === 'number' && item.correctIndex >= 0 && item.correctIndex < 4 ? item.correctIndex : 0,
               subject: params.subject,
+              grade: params.grade && params.grade !== 'all' ? Number(params.grade) || params.grade : undefined,
+              classId: params.classId && params.classId !== 'all' ? params.classId : undefined,
               folderId: params.folderId || undefined,
               rewardCoins: typeof item.rewardCoins === 'number' ? item.rewardCoins : 2,
               explanation: String(item.explanation || '').trim()

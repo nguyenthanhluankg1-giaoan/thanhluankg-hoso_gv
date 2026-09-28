@@ -16,6 +16,7 @@ interface WheelQuizModalProps {
   totalCount?: number;
   isResetCycle?: boolean;
   shuffleOptions?: boolean;
+  onToggleShuffleOptions?: (enabled: boolean) => void;
   onNextQuestion: () => void;
   onAwardCoins: (coins: number, reason: string) => void;
   onSpinAgain?: () => void;
@@ -29,6 +30,94 @@ const OPTION_STYLES = [
   { letterBg: 'bg-purple-600 text-white', borderHover: 'hover:border-purple-400 hover:bg-purple-50/40' }
 ];
 
+// Global tracker to guarantee that consecutive questions NEVER have the exact same correct answer letter
+let lastGlobalCorrectOptionIdx = -1;
+
+export function cleanOptionText(text: string): string {
+  if (!text) return '';
+  // Strip leading prefixes like "A.", "A)", "A -", "A:", "1.", "1)", etc.
+  return text.replace(/^[A-Da-d0-9][\.\)\:\-\s]+\s*/, '').trim();
+}
+
+function generateShuffledOptions(
+  question: QuizQuestion,
+  shuffle: boolean,
+  lastCorrectIndex: number
+): { displayOptions: string[]; correctDisplayIndex: number } {
+  const raw = Array.isArray(question.options) ? question.options : [];
+
+  // 1. Clean prefixes & trim
+  const cleaned: string[] = raw.map((opt, idx) => {
+    let t = cleanOptionText(String(opt || ''));
+    if (!t) t = `Phương án ${OPTION_LETTERS[idx] || idx + 1}`;
+    return t;
+  });
+
+  // Ensure unique text among options (avoid duplicate text causing teacher confusion)
+  const finalCleaned: string[] = [];
+  const seen = new Set<string>();
+  cleaned.forEach((text, idx) => {
+    let uniqueText = text;
+    if (seen.has(uniqueText.toLowerCase())) {
+      uniqueText = `${uniqueText} (${idx + 1})`;
+    }
+    seen.add(uniqueText.toLowerCase());
+    finalCleaned.push(uniqueText);
+  });
+
+  const origCorrect =
+    typeof question.correctIndex === 'number' &&
+    question.correctIndex >= 0 &&
+    question.correctIndex < finalCleaned.length
+      ? question.correctIndex
+      : 0;
+
+  if (!shuffle || finalCleaned.length <= 1) {
+    return {
+      displayOptions: finalCleaned,
+      correctDisplayIndex: origCorrect
+    };
+  }
+
+  // Build items with their correctness flag
+  const items = finalCleaned.map((text, idx) => ({
+    text,
+    isCorrect: idx === origCorrect
+  }));
+
+  const n = items.length;
+  let bestPermutation = [...items];
+
+  // Try permutations until we find one that doesn't repeat lastCorrectIndex
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const candidate = [...items];
+    for (let i = candidate.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = candidate[i];
+      candidate[i] = candidate[j];
+      candidate[j] = temp;
+    }
+
+    const correctIdx = candidate.findIndex((it) => it.isCorrect);
+    const avoidsLastLetter = lastCorrectIndex < 0 || correctIdx !== lastCorrectIndex;
+    const movedFromOriginal = n < 3 || correctIdx !== origCorrect;
+
+    if (avoidsLastLetter && movedFromOriginal) {
+      bestPermutation = candidate;
+      break;
+    } else if (avoidsLastLetter) {
+      bestPermutation = candidate;
+    }
+  }
+
+  const finalCorrectIndex = bestPermutation.findIndex((it) => it.isCorrect);
+
+  return {
+    displayOptions: bestPermutation.map((it) => it.text),
+    correctDisplayIndex: finalCorrectIndex >= 0 ? finalCorrectIndex : 0
+  };
+}
+
 export const WheelQuizModal: React.FC<WheelQuizModalProps> = ({
   isOpen,
   onClose,
@@ -40,6 +129,7 @@ export const WheelQuizModal: React.FC<WheelQuizModalProps> = ({
   totalCount,
   isResetCycle,
   shuffleOptions = true,
+  onToggleShuffleOptions,
   onNextQuestion,
   onAwardCoins,
   onSpinAgain
@@ -51,49 +141,20 @@ export const WheelQuizModal: React.FC<WheelQuizModalProps> = ({
   const [isTimeUp, setIsTimeUp] = useState<boolean>(false);
   const [showAnswer, setShowAnswer] = useState<boolean>(false);
   const [awardedCoins, setAwardedCoins] = useState<number | null>(null);
-  const [shuffleSeed, setShuffleSeed] = useState<number>(0);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState<boolean>(shuffleOptions);
 
-  // Sync isShuffleEnabled when prop changes
+  // Shuffled state computed cleanly without side-effects in render
+  const [shuffledData, setShuffledData] = useState(() =>
+    generateShuffledOptions(question, shuffleOptions, lastGlobalCorrectOptionIdx)
+  );
+
+  // Sync when question or shuffleOptions prop changes
   useEffect(() => {
     setIsShuffleEnabled(shuffleOptions);
-  }, [shuffleOptions]);
-
-  // Compute shuffled options so that answers are non-repetitive across questions
-  // and correctIndex accurately maps to the new position
-  const { displayOptions, correctDisplayIndex } = useMemo(() => {
-    const rawOptions = question.options || [];
-    if (!isShuffleEnabled || rawOptions.length <= 1) {
-      return {
-        displayOptions: rawOptions,
-        correctDisplayIndex: question.correctIndex
-      };
-    }
-
-    // Map items with original index
-    const mapped = rawOptions.map((opt, origIdx) => ({
-      text: opt,
-      isCorrect: origIdx === question.correctIndex,
-      origIdx
-    }));
-
-    // Seeded Fisher-Yates shuffle
-    // Using question.id and shuffleSeed to ensure consistent state during one question view
-    const arr = [...mapped];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const temp = arr[i];
-      arr[i] = arr[j];
-      arr[j] = temp;
-    }
-
-    const newCorrectIdx = arr.findIndex((item) => item.isCorrect);
-    return {
-      displayOptions: arr.map((item) => item.text),
-      correctDisplayIndex: newCorrectIdx >= 0 ? newCorrectIdx : question.correctIndex
-    };
-    // Include shuffleSeed and question.id so changing question re-shuffles
-  }, [question.id, question.options, question.correctIndex, isShuffleEnabled, shuffleSeed]);
+    const nextShuffled = generateShuffledOptions(question, shuffleOptions, lastGlobalCorrectOptionIdx);
+    setShuffledData(nextShuffled);
+    lastGlobalCorrectOptionIdx = nextShuffled.correctDisplayIndex;
+  }, [question.id, question.options, question.correctIndex, shuffleOptions]);
 
   // Reset state when question or duration changes
   useEffect(() => {
@@ -104,8 +165,6 @@ export const WheelQuizModal: React.FC<WheelQuizModalProps> = ({
     setIsTimeUp(false);
     setShowAnswer(false);
     setAwardedCoins(null);
-    // Increment shuffle seed for brand-new order on each question display
-    setShuffleSeed((prev) => prev + 1);
   }, [question.id, durationSeconds]);
 
   // Countdown timer effect
@@ -182,14 +241,30 @@ export const WheelQuizModal: React.FC<WheelQuizModalProps> = ({
     });
   };
 
-  const toggleShuffle = () => {
+  // Re-shuffle options to fresh random positions immediately
+  const handleReshuffleNow = () => {
     if (isAnswered || isTimeUp || showAnswer) return;
-    setIsShuffleEnabled((prev) => !prev);
-    setShuffleSeed((prev) => prev + 1);
+    const next = generateShuffledOptions(question, true, shuffledData.correctDisplayIndex);
+    setShuffledData(next);
+    lastGlobalCorrectOptionIdx = next.correctDisplayIndex;
+    playBeep(580, 0.1, 0.08);
+  };
+
+  // Toggle auto-shuffle ON or OFF
+  const handleToggleShuffle = () => {
+    if (isAnswered || isTimeUp || showAnswer) return;
+    const nextVal = !isShuffleEnabled;
+    setIsShuffleEnabled(nextVal);
+    onToggleShuffleOptions?.(nextVal);
+    const next = generateShuffledOptions(question, nextVal, lastGlobalCorrectOptionIdx);
+    setShuffledData(next);
+    lastGlobalCorrectOptionIdx = next.correctDisplayIndex;
+    playBeep(nextVal ? 660 : 440, 0.1, 0.08);
   };
 
   if (!isOpen) return null;
 
+  const { displayOptions, correctDisplayIndex } = shuffledData;
   const isCorrectAnswer = selectedIdx !== null && selectedIdx === correctDisplayIndex;
 
   // Progress percentage for timer bar
@@ -221,6 +296,12 @@ export const WheelQuizModal: React.FC<WheelQuizModalProps> = ({
                     🎲 Không trùng ({remainingCount} câu còn lại)
                   </span>
                 )}
+                {isShuffleEnabled && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
+                    <Shuffle className="w-2.5 h-2.5" />
+                    <span>Đã tự động đảo vị trí</span>
+                  </span>
+                )}
               </div>
               {isResetCycle && (
                 <div className="text-[10px] text-emerald-700 font-bold mt-0.5">
@@ -238,21 +319,34 @@ export const WheelQuizModal: React.FC<WheelQuizModalProps> = ({
 
           {/* Countdown Display Badge & Controls */}
           <div className="flex items-center gap-2 sm:gap-2.5 self-end sm:self-center flex-wrap">
+            {/* Quick Reshuffle button if shuffle is enabled */}
+            {isShuffleEnabled && !isAnswered && !isTimeUp && !showAnswer && (
+              <button
+                type="button"
+                onClick={handleReshuffleNow}
+                title="Bấm để xáo lại ngay lập tức vị trí 4 phương án A, B, C, D"
+                className="px-2.5 py-1.5 rounded-2xl text-xs font-black bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 transition-all flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
+              >
+                <Shuffle className="w-3.5 h-3.5 text-purple-700 animate-spin-hover" />
+                <span className="hidden sm:inline">Xáo lại</span>
+              </button>
+            )}
+
             {/* Auto shuffle toggle */}
             <button
               type="button"
               disabled={isAnswered || isTimeUp || showAnswer}
-              onClick={toggleShuffle}
-              title={isShuffleEnabled ? 'Đang tự động đảo đáp án (Bấm để bật/tắt hoặc xáo lại)' : 'Bấm để bật tự động đảo vị trí đáp án'}
+              onClick={handleToggleShuffle}
+              title={isShuffleEnabled ? 'Đang bật tự động đảo đáp án. Bấm để tắt.' : 'Đang tắt đảo đáp án. Bấm để bật.'}
               className={`px-2.5 py-1.5 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 border ${
                 isShuffleEnabled
-                  ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:border-purple-300'
+                  ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                   : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
               } ${isAnswered || isTimeUp || showAnswer ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <Shuffle className={`w-3.5 h-3.5 ${isShuffleEnabled ? 'text-purple-600' : 'text-slate-400'}`} />
               <span className="hidden sm:inline">
-                {isShuffleEnabled ? 'Đảo đáp án' : 'Không đảo'}
+                {isShuffleEnabled ? 'Đảo đáp án: BẬT' : 'Đảo: TẮT'}
               </span>
             </button>
 

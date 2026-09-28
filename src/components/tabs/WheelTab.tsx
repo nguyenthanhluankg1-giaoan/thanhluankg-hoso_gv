@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Volume2, RotateCcw, Award, Trash2, HelpCircle, Clock, BookOpen, Shuffle, Folder } from 'lucide-react';
+import { Sparkles, Volume2, RotateCcw, Award, Trash2, HelpCircle, Clock, BookOpen, Shuffle, Folder, GraduationCap, School } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AppState, Student, WHEEL_EFFECTS, QuizQuestion, QuestionFolder } from '../../types';
 import { DEFAULT_QUIZ_QUESTIONS } from '../../data/defaultQuestions';
@@ -42,12 +42,32 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
     ? state.quizQuestions
     : DEFAULT_QUIZ_QUESTIONS;
 
-  // Filter pool by chosen subject
-  const currentSubjectPool = state.wheelQuizSubject && state.wheelQuizSubject !== 'all'
-    ? quizQuestionsList.filter((q) => q.subject === state.wheelQuizSubject)
+  const activeClassGrade = activeClass?.grade || (activeClass?.name ? parseInt(activeClass.name[0], 10) : undefined);
+
+  // 1. Filter pool by chosen Grade (Khối lớp)
+  const targetGrade = state.wheelQuizGrade ?? 'auto';
+  const effectiveGrade = targetGrade === 'auto'
+    ? activeClassGrade
+    : (targetGrade === 'all' ? null : Number(targetGrade));
+
+  const currentGradePool = effectiveGrade
+    ? quizQuestionsList.filter((q) => {
+        if (!q.grade || q.grade === 'all' || q.grade === '') return true;
+        return Number(q.grade) === Number(effectiveGrade);
+      })
     : quizQuestionsList;
 
-  // Filter pool by chosen folder
+  // 2. Filter pool by chosen specific Class (Lớp học)
+  const currentClassPool = state.wheelQuizClassId && state.wheelQuizClassId !== 'all'
+    ? currentGradePool.filter((q) => !q.classId || q.classId === 'all' || q.classId === state.wheelQuizClassId)
+    : currentGradePool;
+
+  // 3. Filter pool by chosen subject
+  const currentSubjectPool = state.wheelQuizSubject && state.wheelQuizSubject !== 'all'
+    ? currentClassPool.filter((q) => q.subject === state.wheelQuizSubject)
+    : currentClassPool;
+
+  // 4. Filter pool by chosen folder
   const currentFolderPool = state.wheelQuizFolderId && state.wheelQuizFolderId !== 'all'
     ? (state.wheelQuizFolderId === 'uncategorized'
         ? currentSubjectPool.filter((q) => !q.folderId)
@@ -483,10 +503,64 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
                     </div>
                   </div>
 
+                  {/* Grade filter */}
+                  <div>
+                    <span className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Khối lớp xuất hiện:</span>
+                    </span>
+                    <select
+                      value={state.wheelQuizGrade || 'auto'}
+                      onChange={(e) =>
+                        onUpdateState((prev) => ({
+                          ...prev,
+                          wheelQuizGrade: e.target.value
+                        }))
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
+                    >
+                      <option value="auto">
+                        ⚡ Tự động theo lớp đang chọn {activeClass ? `(${activeClass.name} - Khối ${activeClassGrade || 3})` : ''}
+                      </option>
+                      <option value="all">Tất cả khối lớp (1, 2, 3, 4, 5)</option>
+                      <option value="1">Khối 1</option>
+                      <option value="2">Khối 2</option>
+                      <option value="3">Khối 3</option>
+                      <option value="4">Khối 4</option>
+                      <option value="5">Khối 5</option>
+                    </select>
+                  </div>
+
+                  {/* Class filter */}
+                  <div>
+                    <span className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <School className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Lớp học áp dụng:</span>
+                    </span>
+                    <select
+                      value={state.wheelQuizClassId || 'all'}
+                      onChange={(e) =>
+                        onUpdateState((prev) => ({
+                          ...prev,
+                          wheelQuizClassId: e.target.value
+                        }))
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
+                    >
+                      <option value="all">Tất cả các lớp (Chung)</option>
+                      {state.classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Subject filter */}
                   <div>
-                    <span className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Môn học xuất hiện:
+                    <span className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <BookOpen className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Môn học xuất hiện:</span>
                     </span>
                     <select
                       value={state.wheelQuizSubject || 'all'}
@@ -541,29 +615,57 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
                   </div>
 
                   {/* Shuffle answers toggle */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-teal-200">
-                    <div className="flex items-center gap-2">
-                      <Shuffle className="w-4 h-4 text-purple-600 shrink-0" />
+                  <div
+                    onClick={() =>
+                      onUpdateState((prev) => ({
+                        ...prev,
+                        wheelQuizShuffleOptions: prev.wheelQuizShuffleOptions === false ? true : false
+                      }))
+                    }
+                    className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all cursor-pointer select-none ${
+                      state.wheelQuizShuffleOptions !== false
+                        ? 'bg-purple-50/90 border-purple-300 text-purple-950 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        state.wheelQuizShuffleOptions !== false ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        <Shuffle className="w-4 h-4" />
+                      </div>
                       <div>
-                        <label className="text-xs font-black text-slate-800 cursor-pointer block">
-                          Tự động đảo đáp án
-                        </label>
-                        <span className="text-[10px] text-slate-500 block leading-tight">
-                          Đổi ngẫu nhiên vị trí A, B, C, D tránh trùng lặp đáp án
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <label className="text-xs font-black cursor-pointer block text-slate-800">
+                            Tự động đảo đáp án
+                          </label>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-extrabold ${
+                            state.wheelQuizShuffleOptions !== false
+                              ? 'bg-purple-200/80 text-purple-900'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {state.wheelQuizShuffleOptions !== false ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                          Đổi ngẫu nhiên vị trí A, B, C, D · Đảm bảo các câu không bị trùng chữ cái đáp án đúng
                         </span>
                       </div>
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={state.wheelQuizShuffleOptions !== false}
-                      onChange={(e) =>
-                        onUpdateState((prev) => ({
-                          ...prev,
-                          wheelQuizShuffleOptions: e.target.checked
-                        }))
-                      }
-                      className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
-                    />
+                    <div className="shrink-0 pl-2">
+                      <input
+                        type="checkbox"
+                        checked={state.wheelQuizShuffleOptions !== false}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          onUpdateState((prev) => ({
+                            ...prev,
+                            wheelQuizShuffleOptions: e.target.checked
+                          }));
+                        }}
+                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                      />
+                    </div>
                   </div>
 
                   {/* Non-duplicate status indicator */}
@@ -756,6 +858,12 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
           totalCount={currentQuestionPool.length}
           isResetCycle={isCycleReset}
           shuffleOptions={state.wheelQuizShuffleOptions !== false}
+          onToggleShuffleOptions={(enabled) =>
+            onUpdateState((prev) => ({
+              ...prev,
+              wheelQuizShuffleOptions: enabled
+            }))
+          }
           onNextQuestion={handleNextQuizQuestion}
           onAwardCoins={handleAwardQuizCoins}
           onSpinAgain={spinWheel}
@@ -769,6 +877,8 @@ export const WheelTab: React.FC<WheelTabProps> = ({ state, onUpdateState }) => {
           onClose={() => setQuestionBankOpen(false)}
           questions={quizQuestionsList}
           folders={Array.isArray(state.questionFolders) ? state.questionFolders : DEFAULT_QUESTION_FOLDERS}
+          classes={state.classes}
+          activeClassId={state.activeClassId}
           onSaveQuestions={handleSaveQuestions}
           onSaveFolders={handleSaveFolders}
           ownerUserId={state.ownerUserId}

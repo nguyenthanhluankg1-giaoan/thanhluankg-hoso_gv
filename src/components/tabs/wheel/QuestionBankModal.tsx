@@ -25,9 +25,12 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  GraduationCap,
+  School,
+  Layers
 } from 'lucide-react';
-import { QuizQuestion, QuestionFolder, DEFAULT_SUBJECTS, UploadedFileInfo } from '../../../types';
+import { QuizQuestion, QuestionFolder, DEFAULT_SUBJECTS, UploadedFileInfo, ClassInfo } from '../../../types';
 import { DEFAULT_QUIZ_QUESTIONS } from '../../../data/defaultQuestions';
 import { DEFAULT_QUESTION_FOLDERS, uid, readFileAsDataURL } from '../../../utils/helpers';
 import { analyzeLessonFileWithGemini, generateQuizWithGemini } from '../../../services/geminiService';
@@ -37,6 +40,8 @@ interface QuestionBankModalProps {
   onClose: () => void;
   questions: QuizQuestion[];
   folders: QuestionFolder[];
+  classes?: ClassInfo[];
+  activeClassId?: string;
   onSaveQuestions: (questions: QuizQuestion[]) => void;
   onSaveFolders: (folders: QuestionFolder[]) => void;
   ownerUserId?: string;
@@ -60,13 +65,19 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   onClose,
   questions,
   folders,
+  classes = [],
+  activeClassId,
   onSaveQuestions,
   onSaveFolders,
   ownerUserId
 }) => {
+  const activeClass = classes.find((c) => c.id === activeClassId);
+
   const [search, setSearch] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>('all'); // 'all', 'uncategorized', or folderId
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedGrade, setSelectedGrade] = useState<string>('all'); // 'all', '1', '2', '3', '4', '5'
+  const [selectedClassId, setSelectedClassId] = useState<string>('all'); // 'all' or classId
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Batch selection state
@@ -79,6 +90,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [folderDesc, setFolderDesc] = useState('');
   const [folderColor, setFolderColor] = useState('#0284c7');
   const [folderSubject, setFolderSubject] = useState<string>('all');
+  const [folderGrade, setFolderGrade] = useState<string>('all');
+  const [folderClassId, setFolderClassId] = useState<string>('all');
 
   // New question form state
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -86,6 +99,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [formOptions, setFormOptions] = useState<string[]>(['', '', '', '']);
   const [formCorrectIndex, setFormCorrectIndex] = useState<number>(0);
   const [formSubject, setFormSubject] = useState<string>('Toán');
+  const [formGrade, setFormGrade] = useState<string | number>('all');
+  const [formClassId, setFormClassId] = useState<string>('all');
   const [formFolderId, setFormFolderId] = useState<string>('');
   const [formRewardCoins, setFormRewardCoins] = useState<number>(2);
   const [formExplanation, setFormExplanation] = useState<string>('');
@@ -99,6 +114,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiSubject, setAiSubject] = useState('Tin học');
+  const [aiGrade, setAiGrade] = useState<string | number>(() => activeClass?.grade || '3');
+  const [aiClassId, setAiClassId] = useState<string>(() => activeClassId || 'all');
   const [aiFolderId, setAiFolderId] = useState('');
   const [aiNumQuestions, setAiNumQuestions] = useState(5);
   const [aiUploadedFiles, setAiUploadedFiles] = useState<UploadedFileInfo[]>([]);
@@ -133,6 +150,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
     setAiTopic('');
     setAiSubject(folderObj?.subject || sub);
+    setAiGrade(selectedGrade !== 'all' ? selectedGrade : (activeClass?.grade ? String(activeClass.grade) : '3'));
+    setAiClassId(selectedClassId !== 'all' ? selectedClassId : (activeClassId || 'all'));
     setAiFolderId(targetFolder);
     setAiNumQuestions(5);
     setAiUploadedFiles([]);
@@ -199,6 +218,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setIsAiGenerating(true);
     try {
       let generatedQuestions: QuizQuestion[] | null = null;
+      const targetGradeVal = aiGrade && aiGrade !== 'all' ? (Number(aiGrade) || aiGrade) : undefined;
+      const targetClassVal = aiClassId && aiClassId !== 'all' ? aiClassId : undefined;
 
       try {
         const response = await fetch('/api/generate-quiz', {
@@ -207,6 +228,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
           body: JSON.stringify({
             topic: aiTopic.trim() || 'Bài học trắc nghiệm',
             subject: aiSubject,
+            grade: targetGradeVal,
+            classId: targetClassVal,
             numQuestions: aiNumQuestions,
             folderId: aiFolderId || undefined,
             attachedFiles: aiUploadedFiles,
@@ -228,6 +251,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         generatedQuestions = await generateQuizWithGemini({
           topic: aiTopic.trim() || 'Bài học trắc nghiệm',
           subject: aiSubject,
+          grade: targetGradeVal,
+          classId: targetClassVal,
           numQuestions: aiNumQuestions,
           folderId: aiFolderId || undefined,
           attachedFiles: aiUploadedFiles,
@@ -236,15 +261,28 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       }
 
       if (generatedQuestions && generatedQuestions.length > 0) {
-        onSaveQuestions([...generatedQuestions, ...questions]);
+        const mappedQuestions = generatedQuestions.map((q) => ({
+          ...q,
+          grade: q.grade !== undefined && q.grade !== null ? q.grade : targetGradeVal,
+          classId: q.classId !== undefined && q.classId !== null ? q.classId : targetClassVal,
+          subject: q.subject || aiSubject
+        }));
+
+        onSaveQuestions([...mappedQuestions, ...questions]);
         if (aiFolderId) {
           setSelectedFolder(aiFolderId);
         }
         if (aiSubject) {
           setSelectedSubject(aiSubject);
         }
+        if (targetGradeVal) {
+          setSelectedGrade(String(targetGradeVal));
+        }
+        if (targetClassVal) {
+          setSelectedClassId(targetClassVal);
+        }
         setIsAiModalOpen(false);
-        alert(`🎉 AI đã tự động biên soạn thành công ${generatedQuestions.length} câu hỏi trắc nghiệm và lưu vào thư mục!`);
+        alert(`🎉 AI đã tự động biên soạn thành công ${mappedQuestions.length} câu hỏi trắc nghiệm (Môn ${aiSubject}${targetGradeVal ? ` - Khối ${targetGradeVal}` : ''}) và lưu vào ngân hàng!`);
       } else {
         alert('Không thể tạo câu hỏi từ dữ liệu đã chọn. Vui lòng kiểm tra lại API Key hoặc tệp đính kèm!');
       }
@@ -281,7 +319,7 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     ])
   );
 
-  // Filter questions by search, subject, AND folder
+  // Filter questions by search, subject, folder, GRADE, and CLASS
   const filteredQuestions = questions.filter((q) => {
     // Match Folder
     let matchFolder = true;
@@ -294,13 +332,34 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     // Match Subject
     const matchSubject = selectedSubject === 'all' || q.subject === selectedSubject;
 
+    // Match Grade (Khối lớp)
+    let matchGrade = true;
+    if (selectedGrade !== 'all') {
+      if (q.grade !== undefined && q.grade !== null && q.grade !== 'all' && q.grade !== '') {
+        matchGrade = String(q.grade) === String(selectedGrade);
+      } else {
+        // If question applies to 'all' grades, show it in all grade views
+        matchGrade = true;
+      }
+    }
+
+    // Match Class (Lớp học)
+    let matchClass = true;
+    if (selectedClassId !== 'all') {
+      if (q.classId && q.classId !== 'all') {
+        matchClass = q.classId === selectedClassId;
+      } else {
+        matchClass = true;
+      }
+    }
+
     // Match Search
     const matchSearch =
       search.trim() === '' ||
       q.question.toLowerCase().includes(search.toLowerCase()) ||
       q.options.some((opt) => opt.toLowerCase().includes(search.toLowerCase()));
 
-    return matchFolder && matchSubject && matchSearch;
+    return matchFolder && matchSubject && matchGrade && matchClass && matchSearch;
   });
 
   const resetForm = () => {
@@ -316,6 +375,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       : (selectedSubject !== 'all' ? selectedSubject : 'Tin học');
 
     setFormSubject(defaultSub);
+    setFormGrade(selectedGrade !== 'all' ? selectedGrade : (activeClass?.grade ? String(activeClass.grade) : 'all'));
+    setFormClassId(selectedClassId !== 'all' ? selectedClassId : (activeClassId || 'all'));
     setFormFolderId(selectedFolder !== 'all' && selectedFolder !== 'uncategorized' ? selectedFolder : '');
     setFormRewardCoins(2);
     setFormExplanation('');
@@ -328,6 +389,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setFormOptions([...q.options]);
     setFormCorrectIndex(q.correctIndex);
     setFormSubject(q.subject || 'Toán');
+    setFormGrade(q.grade !== undefined && q.grade !== null ? String(q.grade) : 'all');
+    setFormClassId(q.classId || 'all');
     setFormFolderId(q.folderId || '');
     setFormRewardCoins(q.rewardCoins || 2);
     setFormExplanation(q.explanation || '');
@@ -345,6 +408,16 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       return;
     }
 
+    const trimmedOpts = formOptions.map((o) => o.trim());
+    const uniqueLowerOpts = new Set(trimmedOpts.map((o) => o.toLowerCase()));
+    if (uniqueLowerOpts.size < trimmedOpts.length) {
+      alert('Các phương án A, B, C, D không được trùng lặp nội dung với nhau! Vui lòng nhập 4 phương án khác nhau.');
+      return;
+    }
+
+    const finalGrade = formGrade && formGrade !== 'all' ? (Number(formGrade) || formGrade) : undefined;
+    const finalClassId = formClassId && formClassId !== 'all' ? formClassId : undefined;
+
     if (editingId) {
       // Edit existing
       const updated = questions.map((q) =>
@@ -355,6 +428,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
               options: formOptions.map((o) => o.trim()),
               correctIndex: formCorrectIndex,
               subject: formSubject,
+              grade: finalGrade,
+              classId: finalClassId,
               folderId: formFolderId || undefined,
               rewardCoins: formRewardCoins,
               explanation: formExplanation.trim()
@@ -370,6 +445,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         options: formOptions.map((o) => o.trim()),
         correctIndex: formCorrectIndex,
         subject: formSubject,
+        grade: finalGrade,
+        classId: finalClassId,
         folderId: formFolderId || undefined,
         rewardCoins: formRewardCoins,
         explanation: formExplanation.trim()
@@ -409,6 +486,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setFolderDesc('');
     setFolderColor('#0284c7');
     setFolderSubject(selectedSubject !== 'all' ? selectedSubject : 'all');
+    setFolderGrade(selectedGrade !== 'all' ? selectedGrade : (activeClass?.grade ? String(activeClass.grade) : 'all'));
+    setFolderClassId(selectedClassId !== 'all' ? selectedClassId : (activeClassId || 'all'));
     setIsFolderModalOpen(true);
   };
 
@@ -419,6 +498,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setFolderDesc(f.description || '');
     setFolderColor(f.color || '#0284c7');
     setFolderSubject(f.subject || 'all');
+    setFolderGrade(f.grade !== undefined && f.grade !== null ? String(f.grade) : 'all');
+    setFolderClassId(f.classId || 'all');
     setIsFolderModalOpen(true);
   };
 
@@ -430,6 +511,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     }
 
     const assignedSubject = folderSubject && folderSubject !== 'all' ? folderSubject : undefined;
+    const assignedGrade = folderGrade && folderGrade !== 'all' ? (Number(folderGrade) || folderGrade) : undefined;
+    const assignedClassId = folderClassId && folderClassId !== 'all' ? folderClassId : undefined;
 
     if (editingFolderId) {
       const updatedFolders = currentFolders.map((f) =>
@@ -439,7 +522,9 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
               name: folderName.trim(),
               description: folderDesc.trim(),
               color: folderColor,
-              subject: assignedSubject
+              subject: assignedSubject,
+              grade: assignedGrade,
+              classId: assignedClassId
             }
           : f
       );
@@ -451,12 +536,20 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         description: folderDesc.trim(),
         color: folderColor,
         subject: assignedSubject,
+        grade: assignedGrade,
+        classId: assignedClassId,
         createdAt: new Date().toISOString()
       };
       onSaveFolders([...currentFolders, newFolder]);
       setSelectedFolder(newFolder.id);
       if (assignedSubject) {
         setSelectedSubject(assignedSubject);
+      }
+      if (assignedGrade) {
+        setSelectedGrade(String(assignedGrade));
+      }
+      if (assignedClassId) {
+        setSelectedClassId(assignedClassId);
       }
     }
 
@@ -657,22 +750,38 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {questions.filter((q) => !q.folderId && (selectedSubject === 'all' || q.subject === selectedSubject)).length}
+                  {questions.filter((q) => {
+                    const mFolder = !q.folderId;
+                    const mSubject = selectedSubject === 'all' || q.subject === selectedSubject;
+                    const mGrade = selectedGrade === 'all' || !q.grade || q.grade === 'all' || String(q.grade) === String(selectedGrade);
+                    const mClass = selectedClassId === 'all' || !q.classId || q.classId === 'all' || q.classId === selectedClassId;
+                    return mFolder && mSubject && mGrade && mClass;
+                  }).length}
                 </span>
               </button>
 
               {/* Custom Folders matching selected subject */}
               {currentFolders
                 .filter((f) => {
-                  if (selectedSubject === 'all') return true;
-                  if (f.subject === selectedSubject) return true;
-                  if (!f.subject || f.subject === 'all') return true;
-                  return questions.some((q) => q.folderId === f.id && q.subject === selectedSubject);
+                  if (selectedSubject !== 'all' && f.subject && f.subject !== 'all' && f.subject !== selectedSubject) {
+                    // Check if folder contains any questions in this subject
+                    const hasQuestionInSubject = questions.some((q) => q.folderId === f.id && q.subject === selectedSubject);
+                    if (!hasQuestionInSubject) return false;
+                  }
+                  if (selectedGrade !== 'all' && f.grade && f.grade !== 'all' && String(f.grade) !== String(selectedGrade)) {
+                    const hasQuestionInGrade = questions.some((q) => q.folderId === f.id && (String(q.grade) === String(selectedGrade) || !q.grade || q.grade === 'all'));
+                    if (!hasQuestionInGrade) return false;
+                  }
+                  return true;
                 })
                 .map((f) => {
-                  const count = questions.filter(
-                    (q) => q.folderId === f.id && (selectedSubject === 'all' || q.subject === selectedSubject)
-                  ).length;
+                  const count = questions.filter((q) => {
+                    const mFolder = q.folderId === f.id;
+                    const mSubject = selectedSubject === 'all' || q.subject === selectedSubject;
+                    const mGrade = selectedGrade === 'all' || !q.grade || q.grade === 'all' || String(q.grade) === String(selectedGrade);
+                    const mClass = selectedClassId === 'all' || !q.classId || q.classId === 'all' || q.classId === selectedClassId;
+                    return mFolder && mSubject && mGrade && mClass;
+                  }).length;
                   const isSelected = selectedFolder === f.id;
                   const colorHex = f.color || '#0284c7';
 
@@ -683,6 +792,9 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                         setSelectedFolder(f.id);
                         if (f.subject && f.subject !== 'all' && selectedSubject === 'all') {
                           setSelectedSubject(f.subject);
+                        }
+                        if (f.grade && f.grade !== 'all' && selectedGrade === 'all') {
+                          setSelectedGrade(String(f.grade));
                         }
                       }}
                       className={`group relative px-3 py-1.5 rounded-xl text-xs font-extrabold border flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer shrink-0 ${
@@ -699,6 +811,13 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                         style={{ backgroundColor: isSelected ? '#ffffff' : colorHex }}
                       />
                       <span>{f.name}</span>
+                      {f.grade && f.grade !== 'all' && (
+                        <span className={`text-[9px] px-1 py-0.2 rounded font-black ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                        }`}>
+                          K{f.grade}
+                        </span>
+                      )}
                       {f.subject && f.subject !== 'all' && selectedSubject === 'all' && (
                         <span className={`text-[9px] px-1 py-0.2 rounded font-bold ${
                           isSelected ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800'
@@ -857,92 +976,140 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 </div>
               </div>
 
-              {/* Metadata Row: Folder, Subject, Coins, Explanation */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                {/* Select Folder */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Thư mục lưu trữ:
-                  </label>
-                  <select
-                    value={formFolderId}
-                    onChange={(e) => setFormFolderId(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                  >
-                    <option value="">-- Chưa xếp thư mục --</option>
-                    {currentFolders.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        📁 {f.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Metadata Row: Grade, Class, Subject, Folder, Coins, Explanation */}
+              <div className="space-y-3 pt-1">
+                {/* Row 1: Grade, Class, Subject */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Select Grade */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Khối lớp áp dụng:</span>
+                    </label>
+                    <select
+                      value={formGrade}
+                      onChange={(e) => setFormGrade(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/40 text-xs font-extrabold text-indigo-950 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                      <option value="all">🌟 Tất cả các khối (Khối 1 - 5)</option>
+                      <option value="1">Khối 1</option>
+                      <option value="2">Khối 2</option>
+                      <option value="3">Khối 3</option>
+                      <option value="4">Khối 4</option>
+                      <option value="5">Khối 5</option>
+                    </select>
+                  </div>
 
-                {/* Subject */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Môn học / Chủ đề:
-                  </label>
-                  <input
-                    type="text"
-                    value={formSubject}
-                    onChange={(e) => setFormSubject(e.target.value)}
-                    placeholder="Tin học, Công nghệ, Toán..."
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none font-semibold mb-1"
-                  />
-                  <div className="flex flex-wrap gap-1">
-                    {['Tin học', 'Công nghệ', 'Toán', 'Tiếng Việt', 'Đố vui'].map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setFormSubject(s)}
-                        className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                          formSubject === s
-                            ? 'bg-teal-600 text-white'
-                            : 'bg-white text-slate-600 border border-slate-200'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
+                  {/* Select Class */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <School className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Lớp học áp dụng:</span>
+                    </label>
+                    <select
+                      value={formClassId}
+                      onChange={(e) => setFormClassId(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-extrabold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      <option value="all">🏫 Tất cả các lớp (Áp dụng chung)</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Subject */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <BookOpen className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Môn học / Chủ đề:</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formSubject}
+                      onChange={(e) => setFormSubject(e.target.value)}
+                      placeholder="Tin học, Công nghệ, Toán..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none font-semibold mb-1"
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      {['Tin học', 'Công nghệ', 'Toán', 'Tiếng Việt', 'Đố vui'].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setFormSubject(s)}
+                          className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                            formSubject === s
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-white text-slate-600 border border-slate-200'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Coins */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Hoa thưởng:
-                  </label>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 5].map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => setFormRewardCoins(amt)}
-                        className={`flex-1 py-1 rounded-xl text-xs font-black border transition-all cursor-pointer ${
-                          formRewardCoins === amt
-                            ? 'bg-rose-400 text-slate-900 border-rose-500 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        +{amt} 🌺
-                      </button>
-                    ))}
+                {/* Row 2: Folder, Coins, Explanation */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Select Folder */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <Folder className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Thư mục lưu trữ:</span>
+                    </label>
+                    <select
+                      value={formFolderId}
+                      onChange={(e) => setFormFolderId(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                    >
+                      <option value="">-- Chưa xếp thư mục --</option>
+                      {currentFolders.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          📁 {f.name} {f.subject && f.subject !== 'all' ? `(${f.subject})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
 
-                {/* Explanation */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Giải thích đáp án:
-                  </label>
-                  <input
-                    type="text"
-                    value={formExplanation}
-                    onChange={(e) => setFormExplanation(e.target.value)}
-                    placeholder="Mẹo nhớ hoặc lời giải..."
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                  />
+                  {/* Coins */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Hoa thưởng:
+                    </label>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 5].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setFormRewardCoins(amt)}
+                          className={`flex-1 py-1 rounded-xl text-xs font-black border transition-all cursor-pointer ${
+                            formRewardCoins === amt
+                              ? 'bg-rose-400 text-slate-900 border-rose-500 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          +{amt} 🌺
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Explanation */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Giải thích đáp án:
+                    </label>
+                    <input
+                      type="text"
+                      value={formExplanation}
+                      onChange={(e) => setFormExplanation(e.target.value)}
+                      placeholder="Mẹo nhớ hoặc lời giải..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -964,41 +1131,95 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             </form>
           )}
 
-          {/* Search, Subject Filter & Batch Actions Bar */}
-          <div className="space-y-2.5">
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+          {/* Search, Grade, Class & Subject Filter Bar */}
+          <div className="space-y-2.5 p-3 rounded-2xl bg-slate-50/90 border border-slate-200">
+            {/* Row 1: Search + Grade filter + Class filter */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
               {/* Search input */}
-              <div className="relative w-full md:w-64 shrink-0">
+              <div className="sm:col-span-5 relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Tìm kiếm câu hỏi..."
-                  className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                  placeholder="Tìm kiếm nội dung câu hỏi..."
+                  className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:outline-none shadow-2xs"
                 />
               </div>
 
+              {/* Grade filter */}
+              <div className="sm:col-span-3 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 shadow-2xs">
+                <GraduationCap className="w-4 h-4 text-indigo-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <select
+                    value={selectedGrade}
+                    onChange={(e) => setSelectedGrade(e.target.value)}
+                    className="w-full bg-transparent text-xs font-black text-indigo-950 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">🎓 Tất cả khối lớp</option>
+                    <option value="1">Khối 1</option>
+                    <option value="2">Khối 2</option>
+                    <option value="3">Khối 3</option>
+                    <option value="4">Khối 4</option>
+                    <option value="5">Khối 5</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Class filter */}
+              <div className="sm:col-span-4 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-emerald-200 shadow-2xs">
+                <School className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <select
+                    value={selectedClassId}
+                    onChange={(e) => setSelectedClassId(e.target.value)}
+                    className="w-full bg-transparent text-xs font-black text-emerald-950 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">🏫 Tất cả các lớp (Chung)</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Subject pills & Active filters badge */}
+            <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-200/60">
               {/* Subject pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-thin">
-                <span className="text-[11px] font-bold text-slate-400 shrink-0">Môn:</span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin flex-1 min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 shrink-0 flex items-center gap-1">
+                  <BookOpen className="w-3 h-3 text-teal-600" />
+                  <span>Môn:</span>
+                </span>
                 {subjectsList.map((sub) => {
                   const count =
                     sub === 'all'
-                      ? filteredQuestions.length
-                      : questions.filter((q) => q.subject === sub).length;
+                      ? questions.filter((q) => {
+                          const mGrade = selectedGrade === 'all' || !q.grade || q.grade === 'all' || String(q.grade) === String(selectedGrade);
+                          const mClass = selectedClassId === 'all' || !q.classId || q.classId === 'all' || q.classId === selectedClassId;
+                          return mGrade && mClass;
+                        }).length
+                      : questions.filter((q) => {
+                          const mGrade = selectedGrade === 'all' || !q.grade || q.grade === 'all' || String(q.grade) === String(selectedGrade);
+                          const mClass = selectedClassId === 'all' || !q.classId || q.classId === 'all' || q.classId === selectedClassId;
+                          return q.subject === sub && mGrade && mClass;
+                        }).length;
+
                   return (
                     <button
                       key={sub}
                       type="button"
                       onClick={() => setSelectedSubject(sub)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-extrabold whitespace-nowrap border flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-full text-xs font-extrabold whitespace-nowrap border flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
                         selectedSubject === sub
                           ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
                           : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'
                       }`}
                     >
-                      <span>{sub === 'all' ? 'Tất cả' : sub}</span>
+                      <span>{sub === 'all' ? 'Tất cả môn' : sub}</span>
                       <span
                         className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
                           selectedSubject === sub
@@ -1012,7 +1233,27 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* Reset filter button if any active filter */}
+              {(selectedGrade !== 'all' || selectedClassId !== 'all' || selectedSubject !== 'all' || selectedFolder !== 'all' || search.trim() !== '') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGrade('all');
+                    setSelectedClassId('all');
+                    setSelectedSubject('all');
+                    setSelectedFolder('all');
+                    setSearch('');
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-extrabold text-[11px] flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                  title="Đặt lại toàn bộ bộ lọc về mặc định"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Xóa lọc</span>
+                </button>
+              )}
             </div>
+          </div>
 
             {/* BATCH ACTION BAR (When 1 or more questions selected) */}
             <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs">
@@ -1070,7 +1311,6 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 </div>
               )}
             </div>
-          </div>
 
           {/* QUESTIONS LIST */}
           <div className="space-y-2.5">
@@ -1113,6 +1353,23 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                             {q.subject}
                           </span>
                         )}
+
+                        {/* Grade Tag */}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-1">
+                          <GraduationCap className="w-3 h-3 text-indigo-600" />
+                          <span>{q.grade ? `Khối ${q.grade}` : 'Khối 1-5'}</span>
+                        </span>
+
+                        {/* Class Tag */}
+                        {(() => {
+                          const matchedClass = classes.find((c) => c.id === q.classId);
+                          return (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                              <School className="w-3 h-3 text-emerald-600" />
+                              <span>{matchedClass ? `Lớp ${matchedClass.name}` : (q.classId && q.classId !== 'all' ? `Lớp ${q.classId}` : 'Tất cả lớp')}</span>
+                            </span>
+                          );
+                        })()}
 
                         {/* Folder Tag */}
                         {matchedFolder ? (
@@ -1270,6 +1527,46 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     ? `Thư mục sẽ nằm trực tiếp trong môn "${folderSubject}". Khi bấm chọn môn "${folderSubject}", thư mục này sẽ hiển thị ngay.`
                     : 'Thư mục dùng chung sẽ hiển thị ở mọi môn học.'}
                 </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1 flex items-center gap-1">
+                    <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Khối lớp:</span>
+                  </label>
+                  <select
+                    value={folderGrade}
+                    onChange={(e) => setFolderGrade(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/40 text-xs font-bold text-indigo-950 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  >
+                    <option value="all">🌟 Tất cả khối</option>
+                    <option value="1">Khối 1</option>
+                    <option value="2">Khối 2</option>
+                    <option value="3">Khối 3</option>
+                    <option value="4">Khối 4</option>
+                    <option value="5">Khối 5</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1 flex items-center gap-1">
+                    <School className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Lớp học:</span>
+                  </label>
+                  <select
+                    value={folderClassId}
+                    onChange={(e) => setFolderClassId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  >
+                    <option value="all">🏫 Tất cả lớp</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -1506,45 +1803,93 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 />
               </div>
 
-              {/* 3. Subject & Folder Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Subject */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-800 mb-1">
-                    Môn học:
-                  </label>
-                  <select
-                    value={aiSubject}
-                    onChange={(e) => setAiSubject(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
-                  >
-                    {subjectsList
-                      .filter((s) => s !== 'all')
-                      .map((s) => (
-                        <option key={s} value={s}>
-                          📚 Môn {s}
-                        </option>
-                      ))}
-                  </select>
+              {/* 3. Subject, Grade, Class & Folder Selection */}
+              <div className="space-y-3">
+                {/* Row 1: Subject + Grade */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Subject */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-800 mb-1 flex items-center gap-1">
+                      <BookOpen className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Môn học:</span>
+                    </label>
+                    <select
+                      value={aiSubject}
+                      onChange={(e) => setAiSubject(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
+                    >
+                      {subjectsList
+                        .filter((s) => s !== 'all')
+                        .map((s) => (
+                          <option key={s} value={s}>
+                            📚 Môn {s}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Grade */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-800 mb-1 flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Khối lớp áp dụng:</span>
+                    </label>
+                    <select
+                      value={aiGrade}
+                      onChange={(e) => setAiGrade(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/40 text-xs font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-2xs"
+                    >
+                      <option value="all">🌟 Tất cả các khối (Khối 1 - 5)</option>
+                      <option value="1">Khối 1</option>
+                      <option value="2">Khối 2</option>
+                      <option value="3">Khối 3</option>
+                      <option value="4">Khối 4</option>
+                      <option value="5">Khối 5</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Target Folder */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-800 mb-1">
-                    Lưu vào thư mục:
-                  </label>
-                  <select
-                    value={aiFolderId}
-                    onChange={(e) => setAiFolderId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
-                  >
-                    <option value="">-- Chưa xếp thư mục (Chung) --</option>
-                    {currentFolders.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        📁 {f.name} {f.subject && f.subject !== 'all' ? `(${f.subject})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                {/* Row 2: Class + Folder */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Class */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-800 mb-1 flex items-center gap-1">
+                      <School className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Lớp học áp dụng:</span>
+                    </label>
+                    <select
+                      value={aiClassId}
+                      onChange={(e) => setAiClassId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                    >
+                      <option value="all">🏫 Tất cả các lớp (Áp dụng chung)</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          Lớp {c.name} {c.grade ? `(Khối ${c.grade})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Target Folder */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-800 mb-1 flex items-center gap-1">
+                      <Folder className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Lưu vào thư mục:</span>
+                    </label>
+                    <select
+                      value={aiFolderId}
+                      onChange={(e) => setAiFolderId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white shadow-2xs"
+                    >
+                      <option value="">-- Chưa xếp thư mục (Chung) --</option>
+                      {currentFolders.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          📁 {f.name} {f.subject && f.subject !== 'all' ? `(${f.subject})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 

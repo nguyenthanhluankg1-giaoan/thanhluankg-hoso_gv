@@ -1592,7 +1592,7 @@ Trả về duy nhất 1 JSON object hợp lệ (không có markdown code fence):
 // API ROUTE: Tự động soạn câu hỏi trắc nghiệm từ PDF/Ảnh bằng AI
 app.post('/api/generate-quiz', async (req, res) => {
   try {
-    const { topic, subject, numQuestions, folderId, attachedFiles, customApiKey } = req.body;
+    const { topic, subject, grade, classId, numQuestions, folderId, attachedFiles, customApiKey } = req.body;
     const apiKeyToUse = customApiKey || process.env.GEMINI_API_KEY;
 
     if (!apiKeyToUse) {
@@ -1622,7 +1622,8 @@ app.post('/api/generate-quiz', async (req, res) => {
     }
 
     const requestedNum = Math.max(1, Math.min(30, Number(numQuestions) || 5));
-    const promptText = `Hãy là một chuyên gia giáo dục xuất sắc. Dựa vào nội dung bài học "${topic || 'Bài học trắc nghiệm'}" (Môn ${subject || 'Tổng hợp'}) và tài liệu/trang sách đính kèm (nếu có), hãy biên soạn đúng ĐỦ ${requestedNum} CÂU HỎI TRẮC NGHIỆM hay, chuẩn kiến thức sư phạm.
+    const gradeText = grade && grade !== 'all' ? `cho học sinh Tiểu học Khối ${grade}` : 'cho học sinh Tiểu học';
+    const promptText = `Hãy là một chuyên gia giáo dục xuất sắc. Dựa vào nội dung bài học "${topic || 'Bài học trắc nghiệm'}" (Môn ${subject || 'Tổng hợp'} ${gradeText}) và tài liệu/trang sách đính kèm (nếu có), hãy biên soạn đúng ĐỦ ${requestedNum} CÂU HỎI TRẮC NGHIỆM hay, chuẩn kiến thức sư phạm và phù hợp lứa tuổi.
 
 Yêu cầu mỗi câu hỏi:
 - Nội dung câu hỏi rõ ràng, bám sát bài dạy "${topic || 'Bài học'}".
@@ -1665,6 +1666,8 @@ Trả về DUY NHẤT một mảng JSON hợp lệ các câu hỏi trắc nghi�
                 : ['Đúng', 'Sai', 'Không xác định', 'Cả A và B'],
               correctIndex: typeof item.correctIndex === 'number' && item.correctIndex >= 0 && item.correctIndex < 4 ? item.correctIndex : 0,
               subject: subject || 'Tin học',
+              grade: grade && grade !== 'all' ? Number(grade) || grade : undefined,
+              classId: classId && classId !== 'all' ? classId : undefined,
               folderId: folderId || undefined,
               rewardCoins: typeof item.rewardCoins === 'number' ? item.rewardCoins : 2,
               explanation: String(item.explanation || '').trim()
