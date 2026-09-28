@@ -216,11 +216,20 @@ YÊU CẦU SOẠN KẾ HOẠCH BÀI DẠY (GIÁO ÁN) CÔNG VĂN 2345/BGDĐT-GDT
 
 Nhiệm vụ: Hãy sinh đầy đủ ${params.totalPeriods} tiết học. Mỗi tiết học BẮT BUỘC tuân thủ đúng cấu trúc Công văn 2345 (I. Yêu cầu cần đạt, II. Đồ dùng dạy học, III. Các hoạt động dạy học gồm 4 bước sư phạm quy chuẩn).
 
+⛔ CẤM TUYỆT ĐỐI VIẾT CÂU MẪU GỢI Ý CHUNG CHUNG HOẶC TÓM TẮT RỖNG:
+- CẤM TUYỆT ĐỐI các câu vô nghĩa như: "GV hướng dẫn HS đọc bài...", "GV yêu cầu HS quan sát SGK...", "GV đưa ra câu hỏi gợi mở...", "HS làm theo sự hướng dẫn...", "HS trả lời câu hỏi...".
+- BẮT BUỘC TRÍCH XUẤT 100% NỘI DUNG DỮ LIỆU THỰC TẾ TRONG SGK VÀ TỆP ĐÍNH KÈM:
+  1. Với bài đọc/ngữ văn: Trích NGUYÊN VĂN đoạn đọc/thơ/văn bản bài học thực tế từ SGK/tệp đính kèm vào "teacherAction".
+  2. Với câu hỏi đọc hiểu / câu hỏi bài học: Trích NGUYÊN VĂN câu hỏi 1, 2, 3, 4 trong SGK vào "teacherAction".
+  3. Với đáp án / câu trả lời: Trích NGUYÊN VĂN câu trả lời chi tiết / đáp án từng câu vào "studentAction".
+  4. Với bài tập / thực hành: Viết RÕ ĐỀ BÀI TẬP CHI TIẾT (các con số, phép tính, câu lệnh, dữ liệu SGK) và LỜI GIẢI / ĐÁP ÁN CHI TIẾT từng câu.
+  5. Nếu người dùng đính kèm tệp trang sách SGK/PDF: Bạn BẮT BUỘC phải đọc kỹ từng hình ảnh/trang sách để lấy ĐÚNG TOÀN BỘ chữ, câu hỏi, bài tập thực tế từ tệp đó vào giáo án. CẤM BỎ QUA VÀ CẤM VIẾT CÂU MẪU KHÔ KHAN!
+
 QUY ĐỊNH BẮT BUỘC VỀ TIÊU ĐỀ & PHÂN MÔN TRONG KẾ HOẠCH BÀI DẠY:
 1. Tên bài dạy chung & Tổng số tiết nằm ở trên: "topic" / "header.title" = "${params.topic} (${params.totalPeriods} tiết)".
 2. Đối với các môn học có Phân môn (ví dụ Tiếng Việt có Đọc, Luyện từ và câu, Viết, Đọc mở rộng, Nói và nghe; Lịch sử & Địa lí có Lịch sử, Địa lí...):
    - BẮT BUỘC cung cấp trường "subSubject" cho mỗi tiết học (ví dụ "Đọc", "Luyện từ và câu", "Viết", "Đọc mở rộng", "Lịch sử", "Địa lí"...).
-   - "lessonTitle": Tên bài dạy trực tiếp của tiết học đó (ví dụ: "Bài 1: Cổng trường mở ra (Tiết 1)", "Bài 1: Tìm hiểu cách viết bài văn kể chuyện sáng tạo"...).
+   - "lessonTitle": Tên bài dạy trực tiếp của tiết học đó (ví dụ: "Thanh âm của gió", "Tìm hiểu cách viết bài văn kể chuyện sáng tạo"... TUYỆT ĐỐI KHÔNG đính kèm chữ "tiết 1", "tiết 2", "(Tiết 1)" hay "tiết X" ở phía sau tên bài vì số tiết đã có ở đầu dòng).
 3. Đối với các môn học KHÔNG có Phân môn (ví dụ Tin học, Toán, Đạo đức, Tự nhiên và Xã hội...):
    - Trường "subSubject" để rỗng ("").
    - BỎ HOÀN TOÀN dòng phía dưới thời gian thực hiện (vì tiêu đề tên bài dạy và tổng số tiết đã nằm ở phía trên).
@@ -280,26 +289,26 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdow
                 {
                   "stepNumber": 1,
                   "stepName": "Bước 1: Chuyển giao nhiệm vụ",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "Nội dung giao việc cụ thể nguyên văn từ SGK/tệp đính kèm kèm câu hỏi/đề bài tập chi tiết (CẤM dùng câu mẫu gợi ý chung chung)",
+                  "studentAction": "Nội dung câu trả lời / lời giải chi tiết nguyên văn từng bài tập của HS (CẤM dùng câu mẫu gợi ý chung chung)"
                 },
                 {
                   "stepNumber": 2,
                   "stepName": "Bước 2: Thực hiện nhiệm vụ",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "GV bao quát, hướng dẫn học sinh thao tác theo đúng các bước trong SGK",
+                  "studentAction": "HS thảo luận nhóm/cặp đôi, thực hiện theo các bước chi tiết"
                 },
                 {
                   "stepNumber": 3,
                   "stepName": "Bước 3: Báo cáo kết quả",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "GV mời đại diện HS phát biểu báo cáo kết quả",
+                  "studentAction": "Đại diện HS trả lời chi tiết nguyên văn đáp án/kết quả thực hành"
                 },
                 {
                   "stepNumber": 4,
                   "stepName": "Bước 4: Đánh giá, kết luận",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "GV nhận xét, chốt kiến thức chuẩn xác theo SGK",
+                  "studentAction": "HS lắng nghe, ghi chép nội dung kiến thức vào vở"
                 }
               ]
             }

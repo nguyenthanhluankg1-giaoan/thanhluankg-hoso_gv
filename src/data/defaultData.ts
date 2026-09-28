@@ -263,6 +263,223 @@ export const defaultPpctList: PpctItem[] = [
     lessonName: 'Bài 1: Vị trí địa lí, lãnh thổ, biển đảo Việt Nam (Tiết 2)',
     integrationNote: '[Thực hành] Xác định vị trí các quần đảo Hoàng Sa & Trường Sa',
     notes: 'Tiết 2 K5'
+  },
+
+  // --- BỘ MÔN: TIN HỌC (KHỐI 3, 4, 5) ---
+  {
+    id: 'ppct-th-3-1',
+    grade: 3,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Bài 1: Thông tin và xử lý thông tin (Tiết 1)',
+    integrationNote: '[CĐS] Nhận biết thông tin số và vật mang tin',
+    notes: 'Chủ đề A. Máy tính và em'
+  },
+  {
+    id: 'ppct-th-3-2',
+    grade: 3,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 1,
+    periodIndex: 2,
+    lessonName: 'Bài 1: Thông tin và xử lý thông tin (Tiết 2)',
+    integrationNote: '[CĐS] Thực hành nhận biết thông tin dạng văn bản, hình ảnh, âm thanh',
+    notes: 'Chủ đề A. Máy tính và em'
+  },
+  {
+    id: 'ppct-th-3-3',
+    grade: 3,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 2,
+    periodIndex: 3,
+    lessonName: 'Bài 2: Khám phá máy tính (Tiết 1)',
+    integrationNote: '[STEM] Phân loại các bộ phận cơ bản của máy tính để bàn',
+    notes: 'Chủ đề A'
+  },
+  {
+    id: 'ppct-th-3-4',
+    grade: 3,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 2,
+    periodIndex: 4,
+    lessonName: 'Bài 2: Khám phá máy tính (Tiết 2 - Thực hành sử dụng chuột)',
+    integrationNote: '[Thực hành] Rèn luyện thao tác di chuyển và nhấp chuột',
+    notes: 'Chủ đề A'
+  },
+  {
+    id: 'ppct-th-4-1',
+    grade: 4,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Bài 1: Phần cứng và phần mềm máy tính (Tiết 1)',
+    integrationNote: '[CĐS] Phân biệt thiết bị vào/ra và phần mềm ứng dụng',
+    notes: 'Tin học Khối 4'
+  },
+  {
+    id: 'ppct-th-4-2',
+    grade: 4,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 1,
+    periodIndex: 2,
+    lessonName: 'Bài 1: Phần cứng và phần mềm máy tính (Tiết 2)',
+    integrationNote: '[CĐS] Thực hành bật/tắt máy tính và khởi động ứng dụng',
+    notes: 'Tin học Khối 4'
+  },
+  {
+    id: 'ppct-th-5-1',
+    grade: 5,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Bài 1: Máy tính và thông tin trong cuộc sống (Tiết 1)',
+    integrationNote: '[CĐS] An toàn thông tin trên mạng Internet',
+    notes: 'Tin học Khối 5'
+  },
+  {
+    id: 'ppct-th-5-2',
+    grade: 5,
+    subject: 'Tin học',
+    subSubject: '',
+    week: 1,
+    periodIndex: 2,
+    lessonName: 'Bài 1: Máy tính và thông tin trong cuộc sống (Tiết 2)',
+    integrationNote: '[CĐS] Thực hành tìm kiếm thông tin an toàn',
+    notes: 'Tin học Khối 5'
+  },
+
+  // --- BỘ MÔN: CÔNG NGHỆ (KHỐI 3, 4, 5) ---
+  {
+    id: 'ppct-cn-3-1',
+    grade: 3,
+    subject: 'Công nghệ',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Bài 1: Tự nhiên và công nghệ (Tiết 1)',
+    integrationNote: '[STEM] Phân biệt sản phẩm tự nhiên và sản phẩm công nghệ',
+    notes: 'Công nghệ Khối 3'
+  },
+  {
+    id: 'ppct-cn-3-2',
+    grade: 3,
+    subject: 'Công nghệ',
+    subSubject: '',
+    week: 2,
+    periodIndex: 2,
+    lessonName: 'Bài 1: Tự nhiên và công nghệ (Tiết 2)',
+    integrationNote: '[STEM] Kể tên các đồ dùng công nghệ trong gia đình',
+    notes: 'Công nghệ Khối 3'
+  },
+  {
+    id: 'ppct-cn-4-1',
+    grade: 4,
+    subject: 'Công nghệ',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Bài 1: Lợi ích của hoa và cây cảnh đối với đời sống (Tiết 1)',
+    integrationNote: '[GDMT] Trồng và chăm sóc hoa làm đẹp cảnh quan trường học',
+    notes: 'Công nghệ Khối 4'
+  },
+  {
+    id: 'ppct-cn-5-1',
+    grade: 5,
+    subject: 'Công nghệ',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Bài 1: Vai trò của công nghệ đối với đời sống (Tiết 1)',
+    integrationNote: '[STEM] Thiết kế mô hình sản phẩm công nghệ tái chế',
+    notes: 'Công nghệ Khối 5'
+  },
+
+  // --- BỘ MÔN: TIẾNG ANH (KHỐI 3, 4, 5) ---
+  {
+    id: 'ppct-ta-3-1',
+    grade: 3,
+    subject: 'Tiếng Anh',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Unit 1: Hello - Lesson 1 (Period 1)',
+    integrationNote: '[GDKN] Lời chào hỏi thân thiện và tự giới thiệu tên bằng Tiếng Anh',
+    notes: 'Tiếng Anh Khối 3'
+  },
+  {
+    id: 'ppct-ta-3-2',
+    grade: 3,
+    subject: 'Tiếng Anh',
+    subSubject: '',
+    week: 1,
+    periodIndex: 2,
+    lessonName: 'Unit 1: Hello - Lesson 2 (Period 2)',
+    integrationNote: 'Thực hành hội thoại hỏi thăm sức khỏe',
+    notes: 'Tiếng Anh Khối 3'
+  },
+  {
+    id: 'ppct-ta-4-1',
+    grade: 4,
+    subject: 'Tiếng Anh',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Unit 1: My Friends - Lesson 1 (Period 1)',
+    integrationNote: 'Giới thiệu bạn bè và quốc tịch',
+    notes: 'Tiếng Anh Khối 4'
+  },
+  {
+    id: 'ppct-ta-5-1',
+    grade: 5,
+    subject: 'Tiếng Anh',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Unit 1: All About Me - Lesson 1 (Period 1)',
+    integrationNote: 'Mô tả địa chỉ và thông tin cá nhân',
+    notes: 'Tiếng Anh Khối 5'
+  },
+
+  // --- BỘ MÔN: ÂM NHẠC & MỸ THUẬT & GIÁO DỤC THỂ CHẤT ---
+  {
+    id: 'ppct-an-3-1',
+    grade: 3,
+    subject: 'Âm nhạc',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Chủ đề 1: Rộn ràng ngày mới - Hát bài Vui đến trường (Tiết 1)',
+    integrationNote: 'Hát kết hợp gõ đệm theo nhịp',
+    notes: 'Âm nhạc Khối 3'
+  },
+  {
+    id: 'ppct-mt-3-1',
+    grade: 3,
+    subject: 'Mỹ thuật',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Chủ đề 1: Trường tiểu học thân yêu - Vẽ tranh mái trường (Tiết 1)',
+    integrationNote: 'Sử dụng chấm, nét và màu sắc thể hiện tình cảm với mái trường',
+    notes: 'Mỹ thuật Khối 3'
+  },
+  {
+    id: 'ppct-gdtc-3-1',
+    grade: 3,
+    subject: 'Giáo dục thể chất',
+    subSubject: '',
+    week: 1,
+    periodIndex: 1,
+    lessonName: 'Bài 1: Đội hình đội ngũ - Biến đổi đội hình từ một hàng ngang thành hai hàng ngang (Tiết 1)',
+    integrationNote: '[GDKN] Rèn luyện ý thức kỉ luật và tinh thần tập thể',
+    notes: 'GDTC Khối 3'
   }
 ];
 

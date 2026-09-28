@@ -1212,13 +1212,40 @@ app.post('/api/gemini/generate-lesson-plan', async (req, res) => {
     let resolvedWeek = inputWeekNumber;
     let resolvedPpctText = inputPpctPeriodsText || '';
     let matchedPpct: any[] = [];
+    
+    // 1. Direct Regex extraction from topic string
+    const weekMatch = topic.match(/(?:tuần|tuan|t)\s*[:\.-]?\s*(\d{1,2})/i);
+    const periodMatch = topic.match(/(?:tiết|tiet|tiết số)\s*[:\.-]?\s*(\d+(?:\s*[\,\-\&]\s*\d+)*)/i)
+      || topic.match(/\(tiết\s*(\d+(?:\s*[\,\-\&]\s*\d+)*)/i);
+
+    if (weekMatch && weekMatch[1]) {
+      const parsedW = parseInt(weekMatch[1], 10);
+      if (parsedW >= 1 && parsedW <= 52) {
+        resolvedWeek = parsedW;
+      }
+    }
+
+    if (periodMatch && periodMatch[1] && (!resolvedPpctText || resolvedPpctText.includes('Tiết 1 -'))) {
+      resolvedPpctText = `Tiết ${periodMatch[1].trim()} theo PPCT (Tuần ${resolvedWeek || 1})`;
+    }
+
+    // 2. PPCT List matching with Grade & Subject filtering
     if (Array.isArray(ppctList) && ppctList.length > 0) {
       const normTopic = normalizeForPpctMatch(cleanTopic);
+      const reqSub = String(subject || '').trim().toLowerCase();
+
       matchedPpct = ppctList.filter((item: any) => {
         const itemGrade = String(item.grade || '').trim();
         const reqGrade = String(grade || '').trim();
         if (itemGrade && reqGrade && itemGrade !== reqGrade) return false;
         
+        if (item.subject && reqSub) {
+          const normItSub = String(item.subject).trim().toLowerCase();
+          if (normItSub !== reqSub && !normItSub.includes(reqSub) && !reqSub.includes(normItSub)) {
+            return false;
+          }
+        }
+
         const normItem = normalizeForPpctMatch(String(item.lessonName || ''));
         return normItem && normTopic && (normItem.includes(normTopic) || normTopic.includes(normItem));
       });
@@ -1231,11 +1258,9 @@ app.post('/api/gemini/generate-lesson-plan', async (req, res) => {
           resolvedWeek = weeks[0];
         }
         const weeksText = weeks.length > 1 ? `Tuần ${weeks.join(', ')}` : `Tuần ${weeks[0] || resolvedWeek}`;
-        if (!resolvedPpctText || resolvedPpctText.includes('Tiết 1 -')) {
-          const periods = matchedPpct.map((m: any) => m.periodIndex).filter(Boolean);
-          if (periods.length > 0) {
-            resolvedPpctText = `Tiết ${periods.join(', ')} theo PPCT (${weeksText})`;
-          }
+        const periods = matchedPpct.map((m: any) => m.periodIndex).filter(Boolean);
+        if (periods.length > 0) {
+          resolvedPpctText = `Tiết ${periods.join(', ')} theo PPCT (${weeksText})`;
         }
       }
     }
@@ -1247,6 +1272,15 @@ app.post('/api/gemini/generate-lesson-plan', async (req, res) => {
     const resolvedTimeRange = cleanTimeRange;
 
     const prompt = `Bạn là một chuyên gia giáo dục xuất sắc tại Việt Nam. Nhiệm vụ của bạn là SOẠN KẾ HOẠCH DẠY HỌC (GIÁO ÁN) CỰC KỲ CHI TIẾT, ĐẦY ĐỦ, CHUẨN KHOA HỌC VÀ BÁM SÁT SGK & PHÂN PHỐI CHƯƠNG TRÌNH (PPCT).
+
+⛔ CẤM TUYỆT ĐỐI VIẾT NỘI DUNG MẪU GỢI Ý CHUNG CHUNG / CÂU MẪU SƯ PHẠM RỖNG:
+- CẤM TUYỆT ĐỐI các câu vô nghĩa như: "GV hướng dẫn HS đọc bài trong SGK...", "GV yêu cầu HS quan sát SGK...", "GV đưa ra câu hỏi gợi mở...", "HS làm theo sự hướng dẫn của GV...", "HS trả lời câu hỏi...".
+- BẮT BUỘC TRÍCH XUẤT 100% NỘI DUNG DỮ LIỆU THỰC TẾ TRONG SGK VÀ TỆP ĐÍNH KÈM:
+  1. Với bài đọc/ngữ văn: Trích NGUYÊN VĂN nội dung đoạn đọc/thơ/văn bản bài học thực tế từ SGK/tệp đính kèm vào "teacherAction".
+  2. Với câu hỏi đọc hiểu / câu hỏi bài học: Trích NGUYÊN VĂN câu hỏi 1, 2, 3, 4 trong SGK vào "teacherAction".
+  3. Với đáp án / câu trả lời: Trích NGUYÊN VĂN câu trả lời chi tiết / đáp án từng câu vào "studentAction".
+  4. Với bài tập / thực hành: Viết RÕ ĐỀ BÀI TẬP CHI TIẾT (các con số, phép tính, câu lệnh, dữ liệu SGK) và LỜI GIẢI / ĐÁP ÁN CHI TIẾT từng câu.
+  5. Nếu người dùng đính kèm tệp trang sách SGK/PDF: Bạn BẮT BUỘC phải đọc kỹ từng hình ảnh/trang sách để lấy ĐÚNG TOÀN BỘ chữ, câu hỏi, bài tập thực tế từ tệp đó vào giáo án. CẤM BỎ QUA VÀ CẤM VIẾT CÂU MẪU KHÔ KHAN!
 
 Ý ĐỊNH CỦA GIÁO VIÊN: "Soạn giáo án, tiêu đề KẾ HOẠCH DẠY HỌC phía sau là TUẦN. Tuần thứ bao nhiêu thì nhờ AI dựa vào PPCT mà người dùng đưa lên để điền vào. Thời gian thực hiện từ… đến…, nhờ AI dựa vào phân phối CT để thêm vào, dựa vào người dùng đã cấu hình sẵn. Bám sát SGK và phân tích thật chi tiết".
 
@@ -1431,26 +1465,26 @@ Trả về duy nhất 1 JSON object hợp lệ (không có markdown code fence):
                 {
                   "stepNumber": 1,
                   "stepName": "Bước 1: Chuyển giao nhiệm vụ",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "Nội dung giao việc cụ thể nguyên văn từ SGK/tệp đính kèm kèm câu hỏi/đề bài tập chi tiết (CẤM dùng câu mẫu gợi ý chung chung)",
+                  "studentAction": "Nội dung câu trả lời / lời giải chi tiết nguyên văn từng bài tập của HS (CẤM dùng câu mẫu gợi ý chung chung)"
                 },
                 {
                   "stepNumber": 2,
                   "stepName": "Bước 2: Thực hiện nhiệm vụ",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "GV bao quát, hướng dẫn học sinh thao tác theo đúng các bước trong SGK",
+                  "studentAction": "HS thảo luận nhóm/cặp đôi, thực hiện theo các bước chi tiết"
                 },
                 {
                   "stepNumber": 3,
                   "stepName": "Bước 3: Báo cáo kết quả",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "GV mời đại diện HS phát biểu báo cáo kết quả",
+                  "studentAction": "Đại diện HS trả lời chi tiết nguyên văn đáp án/kết quả thực hành"
                 },
                 {
                   "stepNumber": 4,
                   "stepName": "Bước 4: Đánh giá, kết luận",
-                  "teacherAction": "...",
-                  "studentAction": "..."
+                  "teacherAction": "GV nhận xét, chốt kiến thức chuẩn xác theo SGK",
+                  "studentAction": "HS lắng nghe, ghi chép nội dung kiến thức vào vở"
                 }
               ]
             }

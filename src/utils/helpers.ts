@@ -52,6 +52,17 @@ export function cleanLessonTitle(title: string): string {
     .trim();
 }
 
+export function cleanSubSubjectLessonTitle(title: string): string {
+  if (!title) return '';
+  let cleaned = cleanLessonTitle(title);
+  // Remove trailing "tiết X", "(tiết X)", "tiết 1/2", "- tiết X", ", tiết X", "(1 tiết)", etc.
+  cleaned = cleaned
+    .replace(/[\s,–-]*\(?\s*tiết\s*\d+(\/\d+)?\s*\)?$/gi, '')
+    .replace(/[\s,–-]*\(?\s*\d+\s*tiết\s*\)?$/gi, '')
+    .trim();
+  return cleaned;
+}
+
 export function initials(name = ''): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';

@@ -30,9 +30,9 @@ import {
 } from 'lucide-react';
 import { DetailedLessonPlan, PeriodPlan, SchoolConfig, UserAccount, PpctItem } from '../types';
 import { exportDetailedLessonPlanToDocx } from '../utils/docxExport';
-import { defaultSchoolConfig } from '../data/defaultData';
+import { defaultSchoolConfig, defaultPpctList } from '../data/defaultData';
 import { getWeekDateRange, formatCleanActivityTitle, abbreviateIntegrationText } from '../utils/dateUtils';
-import { cleanLessonTitle } from '../utils/helpers';
+import { cleanLessonTitle, cleanSubSubjectLessonTitle } from '../utils/helpers';
 import {
   loadLessonPlansFromFirestore,
   saveLessonPlansToFirestore,
@@ -182,6 +182,15 @@ async function generateLessonPlanWithClientGemini(params: {
     }
 
     const promptText = `Bạn là một chuyên gia giáo dục xuất sắc tại Việt Nam. Nhiệm vụ của bạn là SOẠN KẾ HOẠCH DẠY HỌC (GIÁO ÁN) CỰC KỲ CHI TIẾT, ĐẦY ĐỦ, CHUẨN KHOA HỌC VÀ BÁM SÁT SGK & PHÂN PHỐI CHƯƠNG TRÌNH (PPCT).
+
+⛔ CẤM TUYỆT ĐỐI VIẾT NỘI DUNG MẪU GỢI Ý CHUNG CHUNG / CÂU MẪU SƯ PHẠM RỖNG:
+- CẤM TUYỆT ĐỐI các câu vô nghĩa như: "GV hướng dẫn HS đọc bài trong SGK...", "GV yêu cầu HS quan sát SGK...", "GV đưa ra câu hỏi gợi mở...", "HS làm theo sự hướng dẫn của GV...", "HS trả lời câu hỏi...".
+- BẮT BUỘC TRÍCH XUẤT 100% NỘI DUNG DỮ LIỆU THỰC TẾ TRONG SGK VÀ TỆP ĐÍNH KÈM:
+  1. Với bài đọc/ngữ văn: Trích NGUYÊN VĂN nội dung đoạn đọc/thơ/văn bản bài học thực tế từ SGK/tệp đính kèm vào "teacherAction".
+  2. Với câu hỏi đọc hiểu / câu hỏi bài học: Trích NGUYÊN VĂN câu hỏi 1, 2, 3, 4 trong SGK vào "teacherAction".
+  3. Với đáp án / câu trả lời: Trích NGUYÊN VĂN câu trả lời chi tiết / đáp án từng câu vào "studentAction".
+  4. Với bài tập / thực hành: Viết RÕ ĐỀ BÀI TẬP CHI TIẾT (các con số, phép tính, câu lệnh, dữ liệu SGK) và LỜI GIẢI / ĐÁP ÁN CHI TIẾT từng câu.
+  5. Nếu người dùng đính kèm tệp trang sách SGK/PDF: Bạn BẮT BUỘC phải đọc kỹ từng hình ảnh/trang sách để lấy ĐÚNG TOÀN BỘ chữ, câu hỏi, bài tập thực tế từ tệp đó vào giáo án. CẤM BỎ QUA VÀ CẤM VIẾT CÂU MẪU KHÔ KHAN!
 
 ${params.attachedFiles && params.attachedFiles.length > 0 ? 'LƯU Ý BẮT BUỘC KHI CÓ HÌNH ẢNH/TỆP ĐÍNH KÈM: Người dùng đã đính kèm tệp tài liệu/trang sách/PDF. Bạn PHẢI trích xuất và phân tích sâu toàn bộ kiến thức, hình vẽ, câu hỏi, bài tập, ví dụ và hoạt động có trong tài liệu này để đưa vào giáo án.' : ''}
 
@@ -365,6 +374,9 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
 
   useEffect(() => {
     setCustomApiKey(getStoredApiKey(currentUser));
+    if (currentUser?.subject) {
+      setSubject(currentUser.subject);
+    }
   }, [currentUser]);
   const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
   const [inputKey, setInputKey] = useState<string>('');
@@ -399,10 +411,18 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       }
       const savedPpct = localStorage.getItem(keys.PPCT) || localStorage.getItem('khdh_ppct_list_v1');
       if (savedPpct) {
-        setPpctList(JSON.parse(savedPpct));
+        const parsed = JSON.parse(savedPpct);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPpctList(parsed);
+        } else {
+          setPpctList(defaultPpctList);
+        }
+      } else {
+        setPpctList(defaultPpctList);
       }
     } catch (e) {
       console.error('Error reading localStorage for config/PPCT:', e);
+      setPpctList(defaultPpctList);
     }
 
     // Fetch latest KHDH PPCT & Config from Firestore and wipe cloud saved lesson plans
@@ -418,7 +438,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
             setSchoolConfig(khdhData.config);
             localStorage.setItem(keys.CONFIG, JSON.stringify(khdhData.config));
           }
-          if (khdhData.ppctList && Array.isArray(khdhData.ppctList)) {
+          if (khdhData.ppctList && Array.isArray(khdhData.ppctList) && khdhData.ppctList.length > 0) {
             setPpctList(khdhData.ppctList);
             localStorage.setItem(keys.PPCT, JSON.stringify(khdhData.ppctList));
           }
@@ -449,7 +469,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
   // Smart PPCT Auto-matching logic based on Topic, Grade, Subject
   useEffect(() => {
     const cleanTopicStr = topic.trim();
-    if (!cleanTopicStr || ppctList.length === 0) {
+    if (!cleanTopicStr) {
       setAutoMatchedBadge(null);
       // Update default timeRange for the current week number
       const dateRangeObj = getWeekDateRange(schoolConfig.startDateWeek1 || '2024-09-09', weekNumber);
@@ -459,11 +479,27 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
 
     const normalizedTopic = normalizeForPpctMatch(cleanTopicStr);
     const gradeStr = String(grade).trim();
+    const curSub = (subject || '').trim().toLowerCase();
 
-    // Filter PPCT candidate items
-    const candidates = ppctList.filter((it) => {
+    // 1. Extract Week & Period directly from Topic Input Text (e.g., "Tuần 5 - Tiết 9...", "Bài 2 (Tiết 3, Tuần 4)")
+    const weekMatch = cleanTopicStr.match(/(?:tuần|tuan|t)\s*[:\.-]?\s*(\d{1,2})/i);
+    const periodMatch = cleanTopicStr.match(/(?:tiết|tiet|tiết số)\s*[:\.-]?\s*(\d+(?:\s*[\,\-\&]\s*\d+)*)/i)
+      || cleanTopicStr.match(/\(tiết\s*(\d+(?:\s*[\,\-\&]\s*\d+)*)/i);
+
+    const extractedWeek = weekMatch ? parseInt(weekMatch[1], 10) : null;
+    const extractedPeriodsText = periodMatch ? `Tiết ${periodMatch[1].trim()} theo PPCT` : null;
+
+    // 2. Filter PPCT candidate items by Grade AND Subject
+    const activePpctList = ppctList.length > 0 ? ppctList : defaultPpctList;
+    const candidates = activePpctList.filter((it) => {
       const itGrade = String(it.grade || '').trim();
       if (itGrade && gradeStr && itGrade !== gradeStr) return false;
+      if (it.subject && curSub) {
+        const normItSub = it.subject.trim().toLowerCase();
+        if (normItSub !== curSub && !normItSub.includes(curSub) && !curSub.includes(normItSub)) {
+          return false;
+        }
+      }
       return true;
     });
 
@@ -479,7 +515,7 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       );
 
       const weeks = Array.from(new Set(sortedMatched.map((m) => Number(m.week)).filter((w) => w > 0)));
-      const firstWeek = weeks[0] || 1;
+      const firstWeek = weeks[0] || extractedWeek || 1;
       const weeksText = weeks.length > 1 ? `Tuần ${weeks.join(', ')}` : `Tuần ${firstWeek}`;
 
       const periodsText = `Tiết ${sortedMatched.map((m) => m.periodIndex).join(', ')} theo PPCT (${weeksText})`;
@@ -502,10 +538,34 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
         periodsText,
         timeRange: singleWeekTimeRange
       });
+    } else if (extractedWeek || extractedPeriodsText) {
+      // Recognized Week and/or Period directly from user topic input!
+      const targetWeek = extractedWeek && extractedWeek >= 1 && extractedWeek <= 52 ? extractedWeek : weekNumber;
+      const startWeekObj = getWeekDateRange(schoolConfig.startDateWeek1 || '2024-09-09', targetWeek);
+      const singleWeekTimeRange = `từ ngày ${startWeekObj.startDate} đến ngày ${startWeekObj.endDate}`;
+      const finalPeriodsText = extractedPeriodsText
+        ? `${extractedPeriodsText} (Tuần ${targetWeek})`
+        : `Tiết 1 - ${totalPeriods} theo PPCT (Tuần ${targetWeek})`;
+
+      setWeekNumber(targetWeek);
+      setTimeRange(singleWeekTimeRange);
+      setPpctPeriodsText(finalPeriodsText);
+
+      setAutoMatchedBadge({
+        matched: true,
+        lessonName: cleanTopicStr,
+        week: targetWeek,
+        weekText: `Tuần ${targetWeek}`,
+        periodsText: finalPeriodsText,
+        timeRange: singleWeekTimeRange
+      });
     } else {
       setAutoMatchedBadge(null);
       const dateRangeObj = getWeekDateRange(schoolConfig.startDateWeek1 || '2024-09-09', weekNumber);
       setTimeRange(`từ ngày ${dateRangeObj.startDate} đến ngày ${dateRangeObj.endDate}`);
+      if (!ppctPeriodsText) {
+        setPpctPeriodsText(`Tiết 1 - ${totalPeriods} theo PPCT (Tuần ${weekNumber})`);
+      }
     }
   }, [topic, grade, subject, ppctList, schoolConfig.startDateWeek1]);
 
@@ -1354,7 +1414,14 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
       const cleanRange = `từ ngày ${weekDateObj.startDate} đến ngày ${weekDateObj.endDate}`;
 
       fullText += `${period.header.title.toUpperCase()}\n`;
-      fullText += `Thời gian thực hiện: ${cleanRange}\n\n`;
+      fullText += `Thời gian thực hiện: ${cleanRange}\n`;
+      const pSub = period.subSubject || period.header?.subSubject || '';
+      if (pSub) {
+        const rawPTitle = period.lessonTitle || period.header?.lessonTitle || cleanLessonTitle(period.header?.title || '');
+        const pLessonTitle = cleanSubSubjectLessonTitle(rawPTitle);
+        fullText += `Tiết ${period.periodIndex || 1}: ${pSub} - ${pLessonTitle}\n`;
+      }
+      fullText += `\n`;
 
       fullText += `I. YÊU CẦU CẦN ĐẠT:\n`;
       fullText += `1. Năng lực đặc thù:\n`;
@@ -1633,10 +1700,18 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
                 {showPpctPicker && (
                   <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-white rounded-2xl border border-teal-200 shadow-xl max-h-60 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     <div className="text-[10px] font-black text-slate-400 px-2 py-1 uppercase tracking-wider">
-                      Danh sách bài học theo PPCT của Thầy/Cô (Lớp {grade})
+                      Danh sách bài học PPCT {subject ? `môn ${subject}` : ''} (Lớp {grade})
                     </div>
                     {ppctList
-                      .filter((p) => !grade || String(p.grade) === String(grade))
+                      .filter((p) => {
+                        if (grade && String(p.grade) !== String(grade)) return false;
+                        if (subject && p.subject) {
+                          const pSub = p.subject.trim().toLowerCase();
+                          const curSub = subject.trim().toLowerCase();
+                          if (pSub !== curSub && !pSub.includes(curSub) && !curSub.includes(pSub)) return false;
+                        }
+                        return true;
+                      })
                       .map((item) => (
                         <button
                           key={item.id}
@@ -1989,7 +2064,8 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
                     : `${rawTopic} (${currentPlan.totalPeriods || 1} tiết)`;
 
                   const pSubSubject = period.subSubject || period.header?.subSubject || '';
-                  const pLessonTitle = period.lessonTitle || period.header?.lessonTitle || cleanLessonTitle(rawTopic);
+                  const rawPTitle = period.lessonTitle || period.header?.lessonTitle || cleanLessonTitle(rawTopic);
+                  const pLessonTitle = cleanSubSubjectLessonTitle(rawPTitle);
                   const pPeriodIndex = period.periodIndex || (pIdx + 1);
 
                   const periodSpecificLine = pSubSubject

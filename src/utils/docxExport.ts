@@ -15,7 +15,7 @@ import {
 import { saveAs } from 'file-saver';
 import { SchoolConfig, LessonPlanRow } from '../types';
 import { getDayOfWeekName, getWeekDateRange, formatCleanActivityTitle, abbreviateIntegrationText } from './dateUtils';
-import { cleanLessonTitle } from './helpers';
+import { cleanLessonTitle, cleanSubSubjectLessonTitle } from './helpers';
 
 export async function exportLessonPlanToDocx(
   config: SchoolConfig,
@@ -669,7 +669,8 @@ export async function exportDetailedLessonPlanToDocx(
 
     // 5. Thêm dòng phía dưới thời gian thực hiện nếu môn học CÓ phân môn (Tiết X: [Phân môn] - [Tên bài dạy])
     const pSub = period.subSubject || period.header?.subSubject || '';
-    const pTitle = period.lessonTitle || period.header?.lessonTitle || cleanLessonTitle(rawMainTopic);
+    const rawPTitle = period.lessonTitle || period.header?.lessonTitle || cleanLessonTitle(rawMainTopic);
+    const pTitle = cleanSubSubjectLessonTitle(rawPTitle);
     const pIndex = period.periodIndex || (idx + 1);
 
     if (pSub) {
