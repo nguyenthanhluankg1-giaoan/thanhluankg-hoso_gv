@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar, KhdhTabId } from './Navbar';
 import { DocumentPreview } from './DocumentPreview';
-import { WorksheetsTab } from './WorksheetsTab';
 import { PpctManager } from './PpctManager';
 import { TkbManager } from './TkbManager';
 import { AiAssistantTab } from './AiAssistantTab';
@@ -113,7 +112,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
   const [activeTab, setActiveTab] = useState<KhdhTabId>(() => {
     try {
       const saved = localStorage.getItem(keys.ACTIVE_TAB) || localStorage.getItem('khdh_active_tab_v1');
-      if (saved && ['document', 'worksheets', 'ppct', 'tkb', 'ai', 'settings'].includes(saved)) {
+      if (saved && ['document', 'ppct', 'tkb', 'ai', 'settings'].includes(saved)) {
         return saved as KhdhTabId;
       }
     } catch {}
@@ -122,7 +121,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
 
   useEffect(() => {
     const handleCustomTabChange = (e: any) => {
-      if (e.detail && ['document', 'worksheets', 'ppct', 'tkb', 'ai', 'settings'].includes(e.detail)) {
+      if (e.detail && ['document', 'ppct', 'tkb', 'ai', 'settings'].includes(e.detail)) {
         setActiveTab(e.detail);
       }
     };
@@ -208,6 +207,7 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
       console.warn('Error saving KHDH local cache:', e);
     }
 
+    // Ultra-fast auto-save to Firestore (150ms)
     const timer = setTimeout(() => {
       saveKhdhDataToFirestore(activeUser?.id || 'shared', {
         config,
@@ -216,9 +216,36 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
         customizedWeeks,
         configuredClasses
       }).catch((err) => console.warn('Error saving KHDH to Firestore:', err));
-    }, 1000);
+    }, 150);
 
     return () => clearTimeout(timer);
+  }, [config, ppctList, timetable, customizedWeeks, configuredClasses, activeUser?.id]);
+
+  // Flush KHDH data to Firestore on page unload or visibility change
+  useEffect(() => {
+    const flushKhdh = () => {
+      saveKhdhDataToFirestore(activeUser?.id || 'shared', {
+        config,
+        ppctList,
+        timetable,
+        customizedWeeks,
+        configuredClasses
+      }).catch(console.warn);
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        flushKhdh();
+      }
+    };
+
+    window.addEventListener('beforeunload', flushKhdh);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('beforeunload', flushKhdh);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [config, ppctList, timetable, customizedWeeks, configuredClasses, activeUser?.id]);
 
   const handleTabChange = (tab: KhdhTabId) => {
@@ -283,8 +310,6 @@ export const KhdhModule: React.FC<KhdhModuleProps> = ({
             teacherType={effectiveTeacherType}
           />
         )}
-
-        {activeTab === 'worksheets' && <WorksheetsTab />}
 
         {activeTab === 'ppct' && (
           <PpctManager

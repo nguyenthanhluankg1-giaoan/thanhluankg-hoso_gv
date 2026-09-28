@@ -47,7 +47,6 @@ import { LinksTab } from './components/tabs/LinksTab';
 import { StatsTab } from './components/tabs/StatsTab';
 import { DataTab } from './components/tabs/DataTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
-import { WorksheetsTab } from './components/tabs/WorksheetsTab';
 import { KhdhModule } from './components/KhdhModule';
 
 export default function App() {
@@ -57,6 +56,7 @@ export default function App() {
   const [state, setState] = useState<AppState>(() => loadStoredState(getSavedSessionUser()));
   const [systemLogo, setSystemLogo] = useState<string>('');
   const [savedTime, setSavedTime] = useState<string>('vừa xong');
+  const [isCloudSaving, setIsCloudSaving] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [guideModalOpen, setGuideModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -152,6 +152,7 @@ export default function App() {
 
     const wsKey = getUserWorkspaceKey(currentUser);
     const timer = setTimeout(async () => {
+      setIsCloudSaving(true);
       try {
         const ok = await saveAppStateToFirestore(wsKey, state, {
           userId: currentUser.id,
@@ -161,20 +162,22 @@ export default function App() {
         if (ok) {
           const syncTime = new Date();
           setSavedTime(
-            syncTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            syncTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
           );
         }
       } catch (err) {
         console.warn('Auto-save firestore error:', err);
+      } finally {
+        setIsCloudSaving(false);
       }
     }, 150);
 
     return () => clearTimeout(timer);
   }, [state, currentUser]);
 
-  // Ensure state is flushed on page unload/close
+  // Ensure state is flushed on page unload/close or when switching tabs
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const flushState = () => {
       if (currentUser) {
         saveStoredState(currentUser, state);
         const wsKey = getUserWorkspaceKey(currentUser);
@@ -186,23 +189,42 @@ export default function App() {
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        flushState();
+      }
+    };
+
+    window.addEventListener('beforeunload', flushState);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('beforeunload', flushState);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [state, currentUser]);
 
   const handleForceSync = async (newState: AppState): Promise<boolean> => {
     if (!currentUser) return false;
     saveStoredState(currentUser, newState);
-    const now = new Date();
-    setSavedTime(
-      now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    );
-    const wsKey = getUserWorkspaceKey(currentUser);
-    return await saveAppStateToFirestore(wsKey, newState, {
-      userId: currentUser.id,
-      teacherName: currentUser.name,
-      role: currentUser.role
-    });
+    setIsCloudSaving(true);
+    try {
+      const wsKey = getUserWorkspaceKey(currentUser);
+      const ok = await saveAppStateToFirestore(wsKey, newState, {
+        userId: currentUser.id,
+        teacherName: currentUser.name,
+        role: currentUser.role
+      });
+      if (ok) {
+        const now = new Date();
+        setSavedTime(
+          now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        );
+      }
+      return ok;
+    } finally {
+      setIsCloudSaving(false);
+    }
   };
 
   const handleUpdateSystemLogo = async (logo: string) => {
@@ -386,11 +408,6 @@ export default function App() {
           title: 'Kế Hoạch Dạy Học (KHDH)',
           subtitle: 'Quản lý kế hoạch dạy học, phân phối chương trình, thời khóa biểu & xuất file Word'
         };
-      case 'worksheets':
-        return {
-          title: 'Phiếu Học Tập',
-          subtitle: 'Thư mục quản lý và lưu trữ phiếu học tập'
-        };
       default:
         return {
           title: 'Lớp Học Thông Minh',
@@ -506,6 +523,7 @@ export default function App() {
           title={pageInfo.title}
           subtitle={pageInfo.subtitle}
           savedTime={savedTime}
+          isSaving={isCloudSaving}
           classes={state.classes}
           activeClassId={state.activeClassId}
           onSelectClass={(id) => handleUpdateState((prev) => ({ ...prev, activeClassId: id }))}
@@ -517,8 +535,8 @@ export default function App() {
           dbConnected={dbConnected}
         />
 
-        {/* Thanh chọn công cụ Quản lý lớp học ở bên phải (như mục Soạn giáo án) */}
-        {state.currentPage !== 'khdh' && state.currentPage !== 'worksheets' && (
+        {/* Thanh chọn công cụ Quản lý lớp học ở bên phải */}
+        {state.currentPage !== 'khdh' && (
           <ClassroomNavBar
             currentPage={state.currentPage}
             onNavigate={handleNavigate}
@@ -656,10 +674,6 @@ export default function App() {
 
           {state.currentPage === 'khdh' && (
             <KhdhModule currentUser={currentUser} activeClassName={activeClass?.name} />
-          )}
-
-          {state.currentPage === 'worksheets' && (
-            <WorksheetsTab currentUser={currentUser} />
           )}
         </main>
       </div>

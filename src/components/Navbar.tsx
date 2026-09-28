@@ -1,7 +1,7 @@
 import React from 'react';
-import { FileText, Calendar, BookOpen, Sparkles, Settings, CalendarDays, FileCheck } from 'lucide-react';
+import { FileText, Calendar, BookOpen, Sparkles, Settings, CalendarDays, Cloud } from 'lucide-react';
 
-export type KhdhTabId = 'document' | 'worksheets' | 'ppct' | 'tkb' | 'ai' | 'settings';
+export type KhdhTabId = 'document' | 'ppct' | 'tkb' | 'ai' | 'settings';
 
 interface NavbarProps {
   activeTab: KhdhTabId;
@@ -27,11 +27,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       id: 'document' as KhdhTabId,
       label: isGvcn ? 'Lịch báo giảng' : 'Kế hoạch dạy học',
       icon: isGvcn ? CalendarDays : FileText
-    },
-    {
-      id: 'worksheets' as KhdhTabId,
-      label: 'Phiếu học tập',
-      icon: FileCheck
     },
     {
       id: 'ppct' as KhdhTabId,
@@ -109,6 +104,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               );
             })}
+
+            {/* Live Cloud Auto-Sync Indicator */}
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-extrabold shrink-0 shadow-2xs"
+              title="Mọi nội dung kế hoạch dạy học được tự động lưu lên Cloud Firestore tức thì"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <Cloud className="w-3 h-3 text-emerald-600" />
+              <span className="hidden sm:inline">Tự động lưu Cloud</span>
+            </div>
           </nav>
         </div>
       </div>

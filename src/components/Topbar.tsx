@@ -9,6 +9,7 @@ interface TopbarProps {
   title: string;
   subtitle: string;
   savedTime: string;
+  isSaving?: boolean;
   classes: ClassInfo[];
   activeClassId: string;
   onSelectClass: (id: string) => void;
@@ -24,6 +25,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   title,
   subtitle,
   savedTime,
+  isSaving = false,
   classes,
   activeClassId,
   onSelectClass,
@@ -136,13 +138,26 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         {/* Firestore Database Live Status */}
         <div
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-[10px]"
-          title="Hệ thống tự động lưu trữ và đồng bộ nhanh lên Google Cloud Firestore mỗi khi có thay đổi"
+          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] font-extrabold transition-all ${
+            isSaving
+              ? 'bg-amber-50 border-amber-300 text-amber-900'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+          title="Hệ thống tự động lưu trữ và đồng bộ nhanh lên Google Cloud Firestore mỗi khi có thao tác bất kỳ"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <Cloud className="w-3 h-3 text-emerald-600" />
-          <span className="hidden md:inline">Tự động lưu {savedTime}</span>
-          <span className="md:hidden">{savedTime}</span>
+          {isSaving ? (
+            <>
+              <Cloud className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+              <span>Đang lưu Cloud...</span>
+            </>
+          ) : (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <Cloud className="w-3 h-3 text-emerald-600" />
+              <span className="hidden md:inline">Tự động lưu {savedTime}</span>
+              <span className="md:hidden">{savedTime}</span>
+            </>
+          )}
         </div>
 
         {/* Class switcher or Admin mode */}

@@ -20,8 +20,7 @@ import {
   ChevronRight,
   Smartphone,
   Tablet,
-  Monitor,
-  FileSpreadsheet
+  Monitor
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import { useDeviceDetect } from '../hooks/useDeviceDetect';
@@ -66,7 +65,6 @@ export const ClassroomNavBar: React.FC<ClassroomNavBarProps> = ({
         { id: 'attendance', label: 'Điểm danh', icon: ClipboardCheck, badge: '' },
         { id: 'seating', label: 'Sơ đồ lớp', icon: LayoutGrid, badge: '' },
         { id: 'timetable', label: 'Thời khóa biểu', icon: CalendarDays, badge: '' },
-        { id: 'worksheets', label: 'Phiếu học tập', icon: FileSpreadsheet, badge: 'NEW' },
         { id: 'rewards', label: 'Đổi quà', icon: Gift, badge: 'HOT' },
         { id: 'wheel', label: 'Vòng quay', icon: Sparkles, badge: 'HOT' },
         { id: 'film', label: 'Cuộn phim', icon: Film, badge: 'NEW' },
