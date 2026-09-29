@@ -19,6 +19,16 @@ Nhiệm vụ của bạn là soạn Kế hoạch bài dạy (Giáo án) CHUẨN 
 
 BẮT BUỘC TUÂN THỦ CHẶT CHẼ CÁC QUY ĐỊNH SAU:
 
+★ NGUYÊN TẮC BẤT DI BẤT DỊCH VỀ BÁM SÁT SÁCH GIÁO KHOA (SGK):
+1. BÁM SÁT 100% NỘI DUNG SGK ĐƯỢC TẢI ĐÍNH KÈM:
+   - Khi có hình ảnh hoặc tệp PDF trang sách giáo khoa được tải đính kèm lên, bạn BẮT BUỘC phải đọc kỹ từng trang sách, trích xuất NGUYÊN VĂN toàn bộ bài đọc, câu hỏi, bài tập (Bài 1, Bài 2, Bài 3...), tranh ảnh, bảng biểu và số liệu thực tế trong trang sách đó.
+   - TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý THÊM HOẶC BỚT NỘI DUNG VÀO CHƯƠNG TRÌNH GIẢNG DẠY.
+   - KHÔNG tự ý sáng tác thêm bài tập hay nội dung nằm ngoài các trang SGK đính kèm.
+   - KHÔNG bỏ sót bất kỳ phần kiến thức, câu hỏi tìm hiểu bài hay bài tập thực hành nào có trong tài liệu SGK đính kèm.
+2. NỘI DUNG HOẠT ĐỘNG DẠY HỌC:
+   - Mọi hoạt động của Giáo viên (teacherAction) và Học sinh (studentAction) phải bám sát chính xác từng bài tập, từng câu hỏi cụ thể và lời giải chi tiết của SGK đính kèm.
+   - CẤM TUYỆT ĐỐI dùng các câu mẫu chung chung rỗng tuếch như "GV hướng dẫn HS quan sát SGK...", "GV yêu cầu HS làm bài tập...", "HS trả lời câu hỏi...". Phải ghi rõ nội dung câu hỏi và câu trả lời cụ thể bám sát SGK.
+
 I. CẤU TRÚC GIÁO ÁN MỖI TIẾT HỌC
 Mỗi tiết học trong Kế hoạch bài dạy BẮT BUỘC có đủ 3 phần chính theo Công văn 2345:
 
@@ -49,13 +59,12 @@ Mỗi tiết học bắt buộc gồm đúng 4 hoạt động chuẩn Công văn
 QUY ĐỊNH BẮT BUỘC VỀ TRÌNH BÀY HOẠT ĐỘNG:
 - Mỗi Hoạt động được chia thành các Nhiệm vụ cụ thể (* Nhiệm vụ 1, * Nhiệm vụ 2...).
 - Mỗi Nhiệm vụ BẮT BUỘC trình bày đủ 4 BƯỚC SƯ PHẠM QUY CHUẨN:
-  + Bước 1: Chuyển giao nhiệm vụ (GV giao nhiệm vụ cụ thể, rõ ràng, nêu yêu cầu).
+  + Bước 1: Chuyển giao nhiệm vụ (GV giao nhiệm vụ cụ thể, rõ ràng, nêu yêu cầu nguyên văn từ SGK).
   + Bước 2: Thực hiện nhiệm vụ (HS cá nhân/cặp đôi/nhóm thực hiện, GV theo dõi, hỗ trợ).
-  + Bước 3: Báo cáo kết quả (Đại diện HS/nhóm trình bày, lớp lắng nghe, nhận xét).
+  + Bước 3: Báo cáo kết quả (Đại diện HS/nhóm trình bày chi tiết đáp án/nội dung).
   + Bước 4: Đánh giá, kết luận (GV nhận xét, chuẩn hóa kiến thức và chốt nội dung trọng tâm).
 
-- Mọi hành động của GV và HS phải diễn giải CỰC KỲ CHI TIẾT, BÁM SÁT TÊN BÀI HỌC VÀ NỘI DUNG SGK/TỆP ĐÍNH KÈM.
-- KHÔNG dùng câu mẫu chung chung hay lặp lại. Nếu có tệp đính kèm (ảnh/PDF SGK), PHẢI trích xuất và phân tích toàn bộ bài tập, hình ảnh, văn bản trong tệp đó vào nội dung hoạt động.
+- Mọi hành động của GV và HS phải diễn giải CỰC KỲ CHI TIẾT, BÁM SÁT 100% NỘI DUNG SGK ĐƯỢC TẢI LÊN.
 
 IV. QUY ĐỊNH BẮT BUỘC VỀ TIÊU ĐỀ BÀI HỌC:
 1. Tên bài dạy / Tiêu đề ("title", "topic") BẮT BUỘC viết TRỰC TIẾP, NGẮN GỌN TÊN BÀI HỌC (Ví dụ: "Bài 1: Cổng trường mở ra (Tiết 1)", "Bài 1: Tìm hiểu cách viết bài văn kể chuyện sáng tạo").
@@ -92,7 +101,11 @@ YÊU CẦU SOẠN KẾ HOẠCH BÀI DẠY (GIÁO ÁN) CÔNG VĂN 2345/BGDĐT-GDT
   + Giáo dục STEM (CV 909): ${integrationOptions.stem ? 'CÓ' : 'KHÔNG'}
   + Công dân số (CV 3899): ${integrationOptions.cds ? 'CÓ' : 'KHÔNG'}
 
-${hasAttachedFiles ? 'LƯU Ý BẮT BUỘC: Đã có tệp hình ảnh/PDF trang sách đính kèm. Bạn BẮT BUỘC phải đọc kỹ nội dung trang sách để trích xuất toàn bộ bài đọc, câu hỏi, bài tập thực tế vào giáo án!' : ''}
+${hasAttachedFiles ? `⛔ QUY TẮC BẮT BUỘC KHI CÓ TỆP TRANG SÁCH / SGK ĐÍNH KÈM:
+1. Đã có tệp hình ảnh/PDF trang sách giáo khoa (SGK) đính kèm. Bạn BẮT BUỘC phải đọc kỹ từng trang để trích xuất NGUYÊN VĂN toàn bộ bài đọc, câu hỏi, bài tập, ví dụ và dữ liệu thực tế vào giáo án.
+2. TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý THÊM HOẶC BỚT NỘI DUNG VÀO CHƯƠNG TRÌNH GIẢNG DẠY.
+3. KHÔNG sáng tác bài tập ngoài SGK đính kèm, KHÔNG bỏ sót câu hỏi bài tập nào trong các trang SGK đính kèm.
+4. Mọi hoạt động của GV và HS phải diễn giải chi tiết, bám sát 100% nội dung SGK đính kèm.` : `LƯU Ý: Nội dung các hoạt động dạy học phải bám sát chương trình SGK GDPT 2018 chuẩn môn ${subject} Lớp ${grade}, không tự ý thêm bớt nội dung lệch chuẩn chương trình.`}
 
 Nhiệm vụ: Hãy sinh đầy đủ ${totalPeriods} tiết học. Mỗi tiết học BẮT BUỘC tuân thủ đúng cấu trúc Công văn 2345 (I. Yêu cầu cần đạt, II. Đồ dùng dạy học, III. Các hoạt động dạy học gồm 4 hoạt động, mỗi hoạt động gồm các bước sư phạm 1-4 cực kỳ chi tiết).
 

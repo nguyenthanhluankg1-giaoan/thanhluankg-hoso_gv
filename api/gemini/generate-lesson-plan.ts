@@ -475,6 +475,12 @@ export default async function handler(req: any, res: any) {
 - Thời gian thực hiện: ${timeRange || calculateWeekDateRange(startDateWeek1, weekNumber)}
 - Tùy chọn Tích hợp: Năng lực số=${integrationOptions?.nls ? 'CÓ' : 'KHÔNG'}, STEM=${integrationOptions?.stem ? 'CÓ' : 'KHÔNG'}, Công dân số=${integrationOptions?.cds ? 'CÓ' : 'KHÔNG'}
 
+⛔ NGUYÊN TẮC BẮT BUỘC KHI CÓ TỆP TRANG SÁCH / SGK ĐÍNH KÈM:
+1. Đã có tệp hình ảnh/PDF trang sách giáo khoa (SGK) đính kèm. Bạn BẮT BUỘC phải đọc kỹ từng trang để trích xuất NGUYÊN VĂN toàn bộ bài đọc, câu hỏi, bài tập, ví dụ và dữ liệu thực tế vào giáo án.
+2. TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý THÊM HOẶC BỚT NỘI DUNG VÀO CHƯƠNG TRÌNH GIẢNG DẠY.
+3. KHÔNG sáng tác bài tập ngoài SGK đính kèm, KHÔNG bỏ sót câu hỏi bài tập nào trong các trang SGK đính kèm.
+4. Mọi hoạt động của GV và HS phải diễn giải chi tiết, bám sát 100% nội dung SGK đính kèm.
+
 Nhiệm vụ: Hãy sinh đầy đủ ${totalPeriods} tiết học. Mỗi tiết học BẮT BUỘC tuân thủ đúng cấu trúc Công văn 2345 (I. Yêu cầu cần đạt, II. Đồ dùng dạy học, III. Các hoạt động dạy học gồm 4 hoạt động, mỗi hoạt động gồm các bước sư phạm 1-4 cực kỳ chi tiết).
 Trả về DUY NHẤT một JSON hợp lệ có trường "plan": { "topic": "...", "subject": "...", "grade": "...", "totalPeriods": ${totalPeriods}, "bookSeries": "...", "weekNumber": ${weekNumber}, "timeRange": "...", "ppctPeriodsText": "...", "periodPlans": [...] }`;
 
