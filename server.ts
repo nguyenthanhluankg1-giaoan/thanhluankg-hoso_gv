@@ -72,17 +72,19 @@ function normalizeForPpctMatch(str: string): string {
 
 // Fallback Model Pool per SKILL.md specs
 const FALLBACK_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-2.5-pro'
+  'gemini-3.8-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-3.1-pro-preview'
 ];
 
 async function generateWithGemini(contents: any, customKey?: string, configOptions?: any): Promise<string | null> {
   let client = defaultAi;
   if (customKey && customKey.trim()) {
     try {
-      client = new GoogleGenAI({ apiKey: customKey.trim() });
+      client = new GoogleGenAI({
+        apiKey: customKey.trim(),
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
     } catch {
       // ignore invalid custom client
     }
@@ -107,22 +109,34 @@ async function generateWithGemini(contents: any, customKey?: string, configOptio
   return null;
 }
 
+// API Kiểm tra trạng thái Gemini API Key hệ thống
+app.get('/api/gemini/status', (_req, res) => {
+  const hasEnvKey = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
+  res.json({
+    hasServerKey: hasEnvKey,
+    model: 'gemini-3.8-flash'
+  });
+});
+
 // API Kiểm tra kết nối Gemini API Key
 app.post('/api/gemini/test-key', async (req, res) => {
   try {
-    const customKey = (req.headers['x-gemini-api-key'] as string) || req.body?.apiKey;
+    const customKey = (req.headers['x-gemini-api-key'] as string) || req.body?.apiKey || process.env.GEMINI_API_KEY;
     if (!customKey || !customKey.trim()) {
       return res.status(400).json({ success: false, error: 'Chưa cung cấp API Key' });
     }
 
-    const testClient = new GoogleGenAI({ apiKey: customKey.trim() });
+    const testClient = new GoogleGenAI({
+      apiKey: customKey.trim(),
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
     const response = await testClient.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: 'Xin chào, hãy phản hồi: "API Key hoạt động tốt"'
     });
 
     if (response.text) {
-      return res.json({ success: true, message: response.text.trim() });
+      return res.json({ success: true, message: response.text.trim(), model: 'gemini-3.8-flash' });
     }
     return res.status(400).json({ success: false, error: 'Không nhận được phản hồi từ AI' });
   } catch (err: any) {
@@ -1679,7 +1693,7 @@ Trả về DUY NHẤT một mảng JSON hợp lệ các câu hỏi trắc nghi�
 
     parts.push({ text: promptText });
 
-    for (const modelName of ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']) {
+    for (const modelName of ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview']) {
       try {
         const response = await ai.models.generateContent({
           model: modelName,

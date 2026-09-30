@@ -5,9 +5,12 @@ import type { LessonPlanInput, FileWithPreview, LessonPlan } from '../types';
 export const validateApiKey = async (apiKey: string): Promise<boolean> => {
   if (!apiKey) return false;
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: 'hi',
     });
     return !!response.text;
@@ -134,7 +137,7 @@ export const generateLessonPlan = async (data: LessonPlanInput, files: FileWithP
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: { parts: [{ text: prompt }, ...imageParts, ...textParts] },
       config: {
         responseMimeType: 'application/json',

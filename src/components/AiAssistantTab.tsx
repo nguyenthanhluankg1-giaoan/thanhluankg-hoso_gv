@@ -42,7 +42,8 @@ import {
 import { getStoredApiKey, saveStoredApiKey, clearStoredApiKey } from '../utils/apiKeyStorage';
 import {
   analyzeLessonFileWithGemini,
-  generateLessonPlanWithGemini
+  generateLessonPlanWithGemini,
+  testGeminiApiKey
 } from '../services/geminiService';
 
 interface UploadedFileInfo {
@@ -121,7 +122,7 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không bọc trong 
     parts.push({ text: promptText });
     const contents = [{ role: 'user', parts }];
 
-    for (const modelName of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']) {
+    for (const modelName of ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview']) {
       try {
         const response = await ai.models.generateContent({
           model: modelName,
@@ -305,7 +306,7 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không bọc trong 
     parts.push({ text: promptText });
     const contents = [{ role: 'user', parts }];
 
-    for (const modelName of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro']) {
+    for (const modelName of ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview']) {
       try {
         const response = await ai.models.generateContent({
           model: modelName,
@@ -635,34 +636,64 @@ export const AiAssistantTab: React.FC<AiAssistantTabProps> = ({ currentUser }) =
 
     setTestStatus({ loading: true });
     try {
-      const res = await fetch('/api/gemini/test-key', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-gemini-api-key': keyToTest
-        },
-        body: JSON.stringify({ apiKey: keyToTest })
-      });
+      let verified = false;
+      let verifiedMsg = '';
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setTestStatus({
-          loading: false,
-          success: true,
-          message: 'Kết nối thành công! Gemini AI đã sẵn sàng hoạt động.'
+      // 1. Try server verification endpoint first
+      try {
+        const res = await fetch('/api/gemini/test-key', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gemini-api-key': keyToTest
+          },
+          body: JSON.stringify({ apiKey: keyToTest })
         });
-      } else {
-        setTestStatus({
-          loading: false,
-          success: false,
-          message: data.error || 'API Key không hợp lệ. Vui lòng kiểm tra lại!'
-        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            verified = true;
+            verifiedMsg = data.message || 'Kết nối thành công!';
+          } else {
+            setTestStatus({
+              loading: false,
+              success: false,
+              message: data.error || 'API Key không hợp lệ.'
+            });
+            return;
+          }
+        }
+      } catch {
+        // Server endpoint not reachable (e.g., Vercel static deployment)
       }
-    } catch (err: any) {
+
+      // 2. Client-side fallback test directly via @google/genai with gemini-3.8-flash
+      if (!verified) {
+        const clientRes = await testGeminiApiKey(keyToTest);
+        if (clientRes.success) {
+          verified = true;
+          verifiedMsg = clientRes.message || 'Kết nối thành công!';
+        } else {
+          setTestStatus({
+            loading: false,
+            success: false,
+            message: clientRes.error || 'API Key không hợp lệ hoặc bị từ chối bởi Google Gemini.'
+          });
+          return;
+        }
+      }
+
       setTestStatus({
         loading: false,
         success: true,
-        message: 'Đã lưu API Key cho trình duyệt (Sẵn sàng soạn giáo án AI).'
+        message: '✓ Xác thực thành công! Mô hình Gemini 3.8 Flash đã sẵn sàng hoạt động.'
+      });
+    } catch (err: any) {
+      setTestStatus({
+        loading: false,
+        success: false,
+        message: err?.message || 'Không thể kiểm tra API Key lúc này.'
       });
     }
   };

@@ -31,6 +31,8 @@ import { Topbar } from './components/Topbar';
 import { ClassroomNavBar } from './components/ClassroomNavBar';
 import { GuideModal } from './components/GuideModal';
 import { ContactModal } from './components/ContactModal';
+import { ApiKeyModal } from './components/ApiKeyModal';
+import { getStoredApiKey } from './utils/apiKeyStorage';
 
 import { HomeTab } from './components/tabs/HomeTab';
 import { AccountsTab } from './components/tabs/AccountsTab';
@@ -61,7 +63,9 @@ export default function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [guideModalOpen, setGuideModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [contactInfo, setContactInfo] = useState<ContactInfo>(() => getLocalCachedContactInfo());
+  const [userApiKey, setUserApiKey] = useState<string>(() => getStoredApiKey(getSavedSessionUser()));
 
   // References to guarantee no race conditions across browsers
   const cloudLoadedUserRef = useRef<string | null>(null);
@@ -580,6 +584,9 @@ export default function App() {
           currentUser={currentUser}
           onLogout={handleLogout}
           dbConnected={dbConnected}
+          hasApiKey={!!(userApiKey || getStoredApiKey(currentUser))}
+          onOpenApiKeyModal={() => setApiKeyModalOpen(true)}
+          onForceCloudSync={() => handleForceSync(state)}
         />
 
         {/* Thanh chọn công cụ Quản lý lớp học ở bên phải */}
@@ -738,6 +745,14 @@ export default function App() {
         currentUser={currentUser}
         contactInfo={contactInfo}
         onUpdateContactInfo={setContactInfo}
+      />
+
+      {/* Gemini API Key Configuration & Sync Modal */}
+      <ApiKeyModal
+        isOpen={apiKeyModalOpen}
+        onClose={() => setApiKeyModalOpen(false)}
+        currentUser={currentUser}
+        onApiKeyUpdated={(key) => setUserApiKey(key)}
       />
     </div>
   );

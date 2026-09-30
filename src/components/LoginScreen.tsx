@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import { getAccountExpirationInfo } from '../utils/helpers';
+import { fetchUsersFromFirestore } from '../services/dbService';
 
 interface LoginScreenProps {
   onLogin: (user: UserAccount) => void | Promise<void>;
@@ -53,12 +54,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     try {
       // Find matching user
-      const found = users.find(
+      let found = users.find(
         (u) =>
           (u.username.toLowerCase() === cleanUsername ||
             u.email.toLowerCase() === cleanUsername) &&
           u.password === cleanPassword
       );
+
+      // If not found in memory prop, fetch latest accounts directly from Cloud Firestore (e.g. freshly opened on Vercel)
+      if (!found) {
+        try {
+          const freshList = await fetchUsersFromFirestore();
+          found = freshList.find(
+            (u) =>
+              (u.username.toLowerCase() === cleanUsername ||
+                u.email.toLowerCase() === cleanUsername) &&
+              u.password === cleanPassword
+          );
+        } catch {
+          // ignore network error
+        }
+      }
 
       if (!found) {
         setError('Tên đăng nhập hoặc mật khẩu không chính xác!');

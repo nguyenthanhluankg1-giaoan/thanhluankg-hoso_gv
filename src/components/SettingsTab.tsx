@@ -3,6 +3,7 @@ import { Settings, Save, RotateCcw, Building, User, Calendar, FileText, Key, Eye
 import { SchoolConfig, UserAccount } from '../types';
 import { defaultSchoolConfig } from '../data/defaultData';
 import { getStoredApiKey, saveStoredApiKey, clearStoredApiKey } from '../utils/apiKeyStorage';
+import { testGeminiApiKey } from '../services/geminiService';
 
 interface SettingsTabProps {
   config: SchoolConfig;
@@ -23,24 +24,47 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // Gemini API Key State (Unified across entire application for the teacher)
   const [apiKeyInput, setApiKeyInput] = useState<string>(() => getStoredApiKey(currentUser));
   const [showKeyPassword, setShowPassword] = useState<boolean>(false);
-  const [apiKeySavedStatus, setApiKeySavedStatus] = useState<string | null>(null);
+  const [apiKeySavedStatus, setApiKeySavedStatus] = useState<{ success: boolean; text: string } | null>(null);
+  const [isTestingApiKey, setIsTestingApiKey] = useState<boolean>(false);
 
   useEffect(() => {
     setApiKeyInput(getStoredApiKey(currentUser));
   }, [currentUser]);
 
+  const handleTestApiKeySetting = async () => {
+    const trimmed = apiKeyInput.trim();
+    if (!trimmed) {
+      setApiKeySavedStatus({ success: false, text: 'Vui lòng dán API Key trước khi kiểm tra!' });
+      return;
+    }
+    setIsTestingApiKey(true);
+    setApiKeySavedStatus(null);
+    try {
+      const res = await testGeminiApiKey(trimmed);
+      if (res.success) {
+        setApiKeySavedStatus({ success: true, text: '✓ API Key hợp lệ và kết nối Gemini 3.8 Flash thành công!' });
+      } else {
+        setApiKeySavedStatus({ success: false, text: res.error || 'API Key không hợp lệ.' });
+      }
+    } catch (err: any) {
+      setApiKeySavedStatus({ success: false, text: err?.message || 'Lỗi kiểm tra API Key.' });
+    } finally {
+      setIsTestingApiKey(false);
+    }
+  };
+
   const handleSaveApiKeySetting = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = apiKeyInput.trim();
     await saveStoredApiKey(trimmed, currentUser);
-    setApiKeySavedStatus('✓ Đã lưu & đồng bộ API Key lên hệ thống đám mây thành công!');
-    setTimeout(() => setApiKeySavedStatus(null), 3500);
+    setApiKeySavedStatus({ success: true, text: '✓ Đã lưu & đồng bộ API Key lên Firestore thành công!' });
+    setTimeout(() => setApiKeySavedStatus(null), 4000);
   };
 
   const handleClearApiKeySetting = async () => {
     await clearStoredApiKey(currentUser);
     setApiKeyInput('');
-    setApiKeySavedStatus('✓ Đã xóa API Key khỏi hệ thống lưu trữ!');
+    setApiKeySavedStatus({ success: true, text: '✓ Đã xóa API Key khỏi hệ thống!' });
     setTimeout(() => setApiKeySavedStatus(null), 3500);
   };
 
@@ -203,15 +227,25 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </button>
               </div>
 
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                <div className="flex items-center flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTestApiKeySetting}
+                    disabled={isTestingApiKey || !apiKeyInput.trim()}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${isTestingApiKey ? 'animate-spin' : ''}`} />
+                    <span>{isTestingApiKey ? 'Đang kiểm tra...' : 'Kiểm tra kết nối'}</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleSaveApiKeySetting}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow-xs transition-colors cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>Lưu API Key Dùng Chung</span>
+                    <span>Lưu & Đồng bộ Cloud</span>
                   </button>
 
                   {apiKeyInput && (
@@ -227,8 +261,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
 
                 {apiKeySavedStatus && (
-                  <span className="text-xs font-black text-emerald-700 animate-in fade-in">
-                    {apiKeySavedStatus}
+                  <span
+                    className={`text-xs font-black px-2.5 py-1 rounded-lg animate-in fade-in ${
+                      apiKeySavedStatus.success
+                        ? 'text-emerald-800 bg-emerald-100/80 border border-emerald-300'
+                        : 'text-rose-800 bg-rose-100/80 border border-rose-300'
+                    }`}
+                  >
+                    {apiKeySavedStatus.text}
                   </span>
                 )}
               </div>

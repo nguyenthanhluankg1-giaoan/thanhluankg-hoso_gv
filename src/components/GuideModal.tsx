@@ -12,7 +12,7 @@ import {
   Search,
   FileText,
   Gift,
-  Film,
+  Swords,
   VolumeX,
   Link as LinkIcon,
   Database,
@@ -192,17 +192,21 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
     {
       id: 'film-roll',
       category: 'gamification',
-      title: '7. Cuộn phim gọi tên Điện ảnh',
-      subtitle: 'Hiệu ứng quay số cuộn phim điện ảnh lôi cuốn',
-      icon: Film,
+      title: '7. Trò chơi Kéo co thi đấu trả lời câu hỏi',
+      subtitle: 'Trò chơi kéo co kịch tính giữa Đội Đỏ và Đội Xanh kèm câu hỏi trắc nghiệm',
+      icon: Swords,
       steps: [
         {
-          title: 'Bước 1: Mở Cuộn phim',
-          description: 'Vào mục "Cuộn phim" trên thanh công cụ.'
+          title: 'Bước 1: Chọn Đội & Học sinh đại diện',
+          description: 'Vào mục "Kéo co" trên thanh công cụ, bấm nút chọn ngẫu nhiên đại diện cho Đội Đỏ 🔴 và Đội Xanh 🔵.'
         },
         {
-          title: 'Bước 2: Bấm Bắt đầu cuộn',
-          description: 'Các ô khung hình phim sẽ chạy lướt nhanh ngẫu nhiên danh sách học sinh kèm hiệu ứng âm thanh máy quay phim sống động.'
+          title: 'Bước 2: Trả lời câu hỏi & Kéo dây',
+          description: 'Học sinh chọn đáp án trắc nghiệm đúng để kéo dây về phía đội mình (+25px) hoặc giáo viên kéo dây trực tiếp (+1/+2).'
+        },
+        {
+          title: 'Bước 3: Thắng cuộc & Thưởng hoa',
+          description: 'Đội nào kéo được cờ về vạch đích sẽ giành chiến thắng chung cuộc và được thưởng hoa/xu cho toàn đội!'
         }
       ]
     },

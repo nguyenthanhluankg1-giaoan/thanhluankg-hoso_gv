@@ -86,6 +86,39 @@ export function safeParseJSON(rawText: string | null | undefined): any {
 }
 
 /**
+ * Kiểm tra tính hợp lệ và phản hồi của Gemini API Key
+ */
+export async function testGeminiApiKey(apiKey: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  const trimmed = apiKey?.trim();
+  if (!trimmed) {
+    return { success: false, error: 'Chưa cung cấp API Key.' };
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey: trimmed,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: 'Xin chào, phản hồi ngắn: "API Key kết nối thành công"'
+    });
+
+    if (response?.text) {
+      return { success: true, message: response.text.trim() };
+    }
+    return { success: false, error: 'Không nhận được văn bản phản hồi từ Google Gemini.' };
+  } catch (err: any) {
+    console.error('Test Gemini API Key failed:', err);
+    return {
+      success: false,
+      error: err?.message || 'API Key không hợp lệ hoặc bị từ chối bởi Google Gemini.'
+    };
+  }
+}
+
+/**
  * Phân tích tệp hình ảnh/PDF trang sách bằng Gemini
  */
 export async function analyzeLessonFileWithGemini(
@@ -131,7 +164,7 @@ Trả về DUY NHẤT một JSON hợp lệ có dạng:
 
     parts.push({ text: promptText });
 
-    for (const modelName of ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']) {
+    for (const modelName of ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview']) {
       try {
         const response = await ai.models.generateContent({
           model: modelName,
@@ -343,7 +376,7 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdow
 
     parts.push({ text: promptText });
 
-    for (const modelName of ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.1-pro-preview']) {
+    for (const modelName of ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview']) {
       try {
         const response = await ai.models.generateContent({
           model: modelName,
@@ -448,7 +481,7 @@ Trả về DUY NHẤT một mảng JSON hợp lệ các câu hỏi trắc nghi�
 
     parts.push({ text: promptText });
 
-    for (const modelName of ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']) {
+    for (const modelName of ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview']) {
       try {
         const response = await ai.models.generateContent({
           model: modelName,

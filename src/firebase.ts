@@ -1,36 +1,79 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import firebaseConfig from '../firebase-applet-config.json';
+import fileConfig from '../firebase-applet-config.json';
 
-export const app = initializeApp(firebaseConfig);
+// Support both embedded json config and Vercel/Vite environment variables
+const env = (import.meta as any).env || {};
+export const resolvedFirebaseConfig = {
+  projectId: env.VITE_FIREBASE_PROJECT_ID || fileConfig.projectId,
+  appId: env.VITE_FIREBASE_APP_ID || fileConfig.appId,
+  apiKey: env.VITE_FIREBASE_API_KEY || fileConfig.apiKey,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || fileConfig.authDomain,
+  firestoreDatabaseId:
+    env.VITE_FIREBASE_DATABASE_ID ||
+    fileConfig.firestoreDatabaseId ||
+    'ai-studio-hsgiodc-44aadd2f-354d-4302-9b97-d002d1ac93ec',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || fileConfig.storageBucket,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || fileConfig.messagingSenderId,
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID || fileConfig.measurementId || '',
+  oAuthClientId: env.VITE_FIREBASE_OAUTH_CLIENT_ID || fileConfig.oAuthClientId || '',
+  recaptchaSiteKey: env.VITE_FIREBASE_RECAPTCHA_SITE_KEY || fileConfig.recaptchaSiteKey || ''
+};
+
+export const app = getApps().length > 0 ? getApp() : initializeApp(resolvedFirebaseConfig);
 
 // Initialize Firestore directly with the database ID from config
-export const db = getFirestore(
-  app,
-  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-    ? firebaseConfig.firestoreDatabaseId
-    : undefined
-);
+const targetDbId =
+  resolvedFirebaseConfig.firestoreDatabaseId && resolvedFirebaseConfig.firestoreDatabaseId !== '(default)'
+    ? resolvedFirebaseConfig.firestoreDatabaseId
+    : undefined;
 
+export const db = getFirestore(app, targetDbId);
 export const auth = getAuth(app);
 
-// Test connection gracefully without blocking UI or throwing unhandled network errors
-async function testConnection() {
+/**
+ * Kiểm tra kết nối trực tiếp đến Cloud Firestore (hỗ trợ cả Vercel và Google Studio)
+ */
+export async function testFirestoreLiveConnection(): Promise<{
+  connected: boolean;
+  latencyMs: number;
+  databaseId?: string;
+  error?: string;
+}> {
+  const start = Date.now();
   try {
-    await getDoc(doc(db, 'system', 'config'));
-    console.log('Firestore connection initialized');
-  } catch (error: any) {
-    if (error?.code === 'unavailable' || (error instanceof Error && error.message.includes('offline'))) {
-      console.warn('Firestore operating in offline/cached mode.');
-    } else {
-      console.warn('Firestore connection check notice:', error?.message || error);
-    }
+    const testDoc = doc(db, 'system', 'connection_test');
+    await setDoc(testDoc, { lastPing: new Date().toISOString() }, { merge: true });
+    const snap = await getDoc(testDoc);
+    const latencyMs = Date.now() - start;
+    return {
+      connected: snap.exists(),
+      latencyMs,
+      databaseId: resolvedFirebaseConfig.firestoreDatabaseId
+    };
+  } catch (err: any) {
+    const latencyMs = Date.now() - start;
+    return {
+      connected: false,
+      latencyMs,
+      databaseId: resolvedFirebaseConfig.firestoreDatabaseId,
+      error: err?.message || 'Không thể kết nối đến Firestore'
+    };
   }
 }
 
-// Run test connection without blocking initial load
+// Test connection gracefully without blocking UI on initial load
 if (typeof window !== 'undefined') {
-  setTimeout(testConnection, 1000);
+  setTimeout(() => {
+    testFirestoreLiveConnection().then((res) => {
+      if (res.connected) {
+        console.log(`[Cloud Firestore] Kết nối thành công (${res.latencyMs}ms) - DB: ${res.databaseId}`);
+      } else {
+        console.warn(`[Cloud Firestore] Chế độ lưu trữ cục bộ: ${res.error}`);
+      }
+    });
+  }, 1200);
 }
+
 

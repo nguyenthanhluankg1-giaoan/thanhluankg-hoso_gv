@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { initials } from '../utils/helpers';
+import { generateStudentSvgDataUrl } from '../utils/avatarIcons';
 
 interface AvatarProps {
   name: string;
   avatar?: string;
+  gender?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   className?: string;
 }
@@ -11,6 +12,7 @@ interface AvatarProps {
 export const Avatar: React.FC<AvatarProps> = ({
   name,
   avatar,
+  gender,
   size = 'md',
   className = ''
 }) => {
@@ -26,7 +28,8 @@ export const Avatar: React.FC<AvatarProps> = ({
     '3xl': 'w-48 h-48 text-5xl rounded-[3rem]'
   }[size];
 
-  const isImage =
+  // Check if avatar is a custom uploaded photo or base64
+  const isCustomImage =
     avatar &&
     !imgError &&
     (avatar.startsWith('data:') ||
@@ -35,10 +38,10 @@ export const Avatar: React.FC<AvatarProps> = ({
       avatar.startsWith('blob:') ||
       avatar.startsWith('/'));
 
-  if (isImage) {
+  if (isCustomImage) {
     return (
       <div
-        className={`relative overflow-hidden flex-shrink-0 shadow-sm border-2 border-teal-200/90 bg-slate-100 ${sizeClasses} ${className}`}
+        className={`relative overflow-hidden flex-shrink-0 shadow-md border-2 border-amber-300/90 bg-slate-100 transition-transform hover:scale-105 ${sizeClasses} ${className}`}
       >
         <img
           src={avatar}
@@ -51,21 +54,30 @@ export const Avatar: React.FC<AvatarProps> = ({
     );
   }
 
+  // Check if avatar is an emoji preset
   if (avatar && !imgError && avatar.length <= 4) {
     return (
       <div
-        className={`relative flex items-center justify-center flex-shrink-0 shadow-sm border-2 border-teal-200/80 bg-teal-50 select-none ${sizeClasses} ${className}`}
+        className={`relative flex items-center justify-center flex-shrink-0 shadow-md border-2 border-amber-300/90 bg-gradient-to-br from-teal-50 to-sky-100 select-none transition-transform hover:scale-105 ${sizeClasses} ${className}`}
       >
         <span className="leading-none">{avatar}</span>
       </div>
     );
   }
 
+  // Default: Auto-generate vibrant vector student SVG character avatar!
+  const defaultSvgUrl = generateStudentSvgDataUrl(name, gender);
+
   return (
     <div
-      className={`relative flex items-center justify-center font-black text-white flex-shrink-0 shadow-sm border border-white/80 select-none bg-gradient-to-br from-teal-600 via-teal-500 to-teal-400 ${sizeClasses} ${className}`}
+      className={`relative overflow-hidden flex-shrink-0 shadow-md border-2 border-amber-300/90 bg-slate-900 transition-transform hover:scale-105 ${sizeClasses} ${className}`}
+      title={name}
     >
-      <span>{initials(name)}</span>
+      <img
+        src={defaultSvgUrl}
+        alt={name}
+        className="w-full h-full object-cover select-none"
+      />
     </div>
   );
 };

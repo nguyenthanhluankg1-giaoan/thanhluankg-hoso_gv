@@ -1,5 +1,20 @@
 import React from 'react';
-import { CheckCircle2, Menu, Database, LogOut, ShieldCheck, UserCheck, Smartphone, Clock, AlertTriangle, Infinity, Cloud } from 'lucide-react';
+import {
+  CheckCircle2,
+  Menu,
+  Database,
+  LogOut,
+  ShieldCheck,
+  UserCheck,
+  Smartphone,
+  Clock,
+  AlertTriangle,
+  Infinity,
+  Cloud,
+  Sparkles,
+  Key,
+  RefreshCw
+} from 'lucide-react';
 import { ClassInfo, TeacherProfile, UserAccount } from '../types';
 import { Avatar } from './Avatar';
 import { useDeviceDetect } from '../hooks/useDeviceDetect';
@@ -19,6 +34,9 @@ interface TopbarProps {
   currentUser?: UserAccount | null;
   onLogout?: () => void;
   dbConnected?: boolean;
+  hasApiKey?: boolean;
+  onOpenApiKeyModal?: () => void;
+  onForceCloudSync?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -34,7 +52,10 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenMobileSidebar,
   currentUser,
   onLogout,
-  dbConnected = true
+  dbConnected = true,
+  hasApiKey = false,
+  onOpenApiKeyModal,
+  onForceCloudSync
 }) => {
   const { isMobile, isTablet, screenWidth } = useDeviceDetect();
 
@@ -136,14 +157,47 @@ export const Topbar: React.FC<TopbarProps> = ({
           </div>
         )}
 
-        {/* Firestore Database Live Status */}
-        <div
-          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] font-extrabold transition-all ${
+        {/* Gemini AI Status Badge */}
+        {onOpenApiKeyModal && (
+          <button
+            type="button"
+            onClick={onOpenApiKeyModal}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] sm:text-[11px] font-extrabold transition-all cursor-pointer ${
+              hasApiKey
+                ? 'bg-teal-50 hover:bg-teal-100/80 border-teal-200 text-teal-800'
+                : 'bg-amber-100 hover:bg-amber-200/90 border-amber-300 text-amber-900 animate-pulse'
+            }`}
+            title={
+              hasApiKey
+                ? 'Mô hình Gemini 3.8 Flash đã nhận diện và sẵn sàng. Bấm để quản lý hoặc kiểm tra kết nối.'
+                : 'Chưa cấu hình API Key. Bấm để cài đặt và đồng bộ ngay!'
+            }
+          >
+            {hasApiKey ? (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                <span className="hidden lg:inline">Gemini 3.8 Flash</span>
+                <span className="lg:hidden">AI</span>
+              </>
+            ) : (
+              <>
+                <Key className="w-3.5 h-3.5 text-amber-700" />
+                <span>Cài API Key</span>
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Firestore Database Live Status (Clickable to force sync) */}
+        <button
+          type="button"
+          onClick={onForceCloudSync}
+          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] font-extrabold transition-all cursor-pointer ${
             isSaving
               ? 'bg-amber-50 border-amber-300 text-amber-900'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-emerald-50 hover:bg-emerald-100/80 border-emerald-200 text-emerald-800'
           }`}
-          title="Hệ thống tự động lưu trữ và đồng bộ nhanh lên Google Cloud Firestore mỗi khi có thao tác bất kỳ"
+          title="Bấm để đồng bộ dữ liệu ngay lập tức lên Google Cloud Firestore (kết nối giữa Vercel và Google Studio)"
         >
           {isSaving ? (
             <>
@@ -154,11 +208,11 @@ export const Topbar: React.FC<TopbarProps> = ({
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <Cloud className="w-3 h-3 text-emerald-600" />
-              <span className="hidden md:inline">Tự động lưu {savedTime}</span>
+              <span className="hidden md:inline">Đồng bộ Cloud ({savedTime})</span>
               <span className="md:hidden">{savedTime}</span>
             </>
           )}
-        </div>
+        </button>
 
         {/* Class switcher or Admin mode */}
         {currentUser?.role === 'admin' ? (
