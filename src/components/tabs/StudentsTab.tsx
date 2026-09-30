@@ -1039,13 +1039,13 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   {/* Live Avatar Preview */}
                   <div className="relative group/preview flex-shrink-0">
-                    <Avatar name={formName || 'Học sinh'} avatar={formAvatar} gender={formGender} size="2xl" />
+                    <Avatar name={formName || 'Học sinh'} avatar={formAvatar} size="2xl" />
                     {formAvatar && (
                       <button
                         type="button"
                         onClick={() => setFormAvatar('')}
                         className="absolute -top-1.5 -right-1.5 p-1 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-md cursor-pointer"
-                        title="Dùng Icon mặc định tự động tạo"
+                        title="Xóa ảnh đại diện này"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1055,16 +1055,17 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                   {/* Upload Actions */}
                   <div className="flex-1 text-center sm:text-left space-y-1.5">
                     <label className="block text-xs font-black text-teal-950 uppercase tracking-wider">
-                      Ảnh đại diện (Mặc định tự động tạo Icon đẹp mắt)
+                      Ảnh đại diện học sinh
                     </label>
-                    <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                      ✨ Mặc định hệ thống tự động tạo <strong>Icon nhân vật đẹp mắt</strong> cho từng học sinh. Nếu muốn đổi ảnh riêng, Thầy/Cô có thể tự tải ảnh chân dung lên.
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Tải ảnh chân dung từ máy tính hoặc chụp bằng điện thoại giúp Thầy/Cô dễ dàng
+                      quan sát và nhận diện học sinh trong lớp.
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start pt-1">
                       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm cursor-pointer transition-all">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{formAvatar ? 'Đổi ảnh khác' : 'Tải ảnh từ máy tính/điện thoại'}</span>
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>{formAvatar ? 'Đổi ảnh khác' : 'Tải ảnh từ thiết bị'}</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -1079,7 +1080,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                           onClick={() => setFormAvatar('')}
                           className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs transition-all cursor-pointer"
                         >
-                          Dùng Icon mặc định
+                          Gỡ ảnh
                         </button>
                       )}
                     </div>
@@ -1089,7 +1090,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                 {/* Quick Emoji Presets */}
                 <div className="mt-3 pt-3 border-t border-teal-200/60">
                   <span className="block text-[10px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">
-                    Hoặc chọn nhanh biểu tượng hoạt hình:
+                    Hoặc chọn biểu tượng đại diện vui nhộn:
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {[
@@ -1107,13 +1108,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                       '🎨',
                       '🎵',
                       '📚',
-                      '🏆',
-                      '🐱',
-                      '🐶',
-                      '🦁',
-                      '👑',
-                      '🦸‍♂️',
-                      '🦸‍♀️'
+                      '🏆'
                     ].map((emoji) => (
                       <button
                         key={emoji}

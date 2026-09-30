@@ -252,99 +252,6 @@ export function sanitizeFirestoreData(data: any): any {
 }
 
 /**
- * Safely optimize AppState object to guarantee JSON size stays well below
- * Firestore's strict 1MB (1,048,576 bytes) document size limit.
- */
-export function prepareOptimizedWorkspacePayload(state: AppState): AppState {
-  if (!state) return state;
-
-  const cloned: AppState = JSON.parse(JSON.stringify(state));
-
-  // 1. Cap long history logs to prevent unbounded document size growth over time
-  if (Array.isArray(cloned.transactions) && cloned.transactions.length > 50) {
-    cloned.transactions = cloned.transactions.slice(0, 50);
-  }
-  if (Array.isArray(cloned.wheelHistory) && cloned.wheelHistory.length > 25) {
-    cloned.wheelHistory = cloned.wheelHistory.slice(0, 25);
-  }
-  if (Array.isArray(cloned.filmHistory) && cloned.filmHistory.length > 25) {
-    cloned.filmHistory = cloned.filmHistory.slice(0, 25);
-  }
-  if (Array.isArray(cloned.redemptions) && cloned.redemptions.length > 30) {
-    cloned.redemptions = cloned.redemptions.slice(0, 30);
-  }
-  if (Array.isArray(cloned.worksheets) && cloned.worksheets.length > 15) {
-    cloned.worksheets = cloned.worksheets.slice(0, 15);
-  }
-
-  // 2. Clear / strip oversized base64 images (> 12KB) in student avatars, teacher avatar, class banners, and rewards
-  if (Array.isArray(cloned.students)) {
-    cloned.students = cloned.students.map((s: Student) => {
-      if (s.avatar && typeof s.avatar === 'string' && s.avatar.startsWith('data:') && s.avatar.length > 12000) {
-        // Clear oversized base64 strings so student defaults to vibrant SVG avatar icon
-        return { ...s, avatar: '' };
-      }
-      return s;
-    });
-  }
-
-  if (cloned.teacher?.avatar && typeof cloned.teacher.avatar === 'string' && cloned.teacher.avatar.startsWith('data:') && cloned.teacher.avatar.length > 20000) {
-    cloned.teacher.avatar = '';
-  }
-
-  if (Array.isArray(cloned.classes)) {
-    cloned.classes = cloned.classes.map((c) => {
-      if (c.bannerUrl && typeof c.bannerUrl === 'string' && c.bannerUrl.startsWith('data:') && c.bannerUrl.length > 25000) {
-        return { ...c, bannerUrl: '' };
-      }
-      return c;
-    });
-  }
-
-  if (Array.isArray(cloned.rewards)) {
-    cloned.rewards = cloned.rewards.map((r) => {
-      if (r.image && typeof r.image === 'string' && r.image.startsWith('data:') && r.image.length > 15000) {
-        return { ...r, image: '' };
-      }
-      return r;
-    });
-  }
-
-  // 3. FAILSAFE SIZE GUARANTEE LOOP (Guarantees JSON payload string length is strictly under 500,000 bytes!)
-  let jsonString = JSON.stringify(cloned);
-
-  if (jsonString.length > 500000) {
-    // Stage 1: Strip ALL data: base64 images in student avatars
-    if (Array.isArray(cloned.students)) {
-      cloned.students = cloned.students.map((s) =>
-        s.avatar?.startsWith('data:') ? { ...s, avatar: '' } : s
-      );
-    }
-    jsonString = JSON.stringify(cloned);
-  }
-
-  if (jsonString.length > 500000) {
-    // Stage 2: Aggressively trim transactions & history logs to 15 items
-    if (Array.isArray(cloned.transactions)) cloned.transactions = cloned.transactions.slice(0, 15);
-    if (Array.isArray(cloned.wheelHistory)) cloned.wheelHistory = cloned.wheelHistory.slice(0, 10);
-    if (Array.isArray(cloned.filmHistory)) cloned.filmHistory = cloned.filmHistory.slice(0, 10);
-    if (Array.isArray(cloned.redemptions)) cloned.redemptions = cloned.redemptions.slice(0, 10);
-    if (Array.isArray(cloned.worksheets)) cloned.worksheets = cloned.worksheets.slice(0, 5);
-    jsonString = JSON.stringify(cloned);
-  }
-
-  if (jsonString.length > 500000) {
-    // Stage 3: Trim quizQuestions if > 40 questions
-    if (Array.isArray(cloned.quizQuestions) && cloned.quizQuestions.length > 40) {
-      cloned.quizQuestions = cloned.quizQuestions.slice(0, 40);
-    }
-    jsonString = JSON.stringify(cloned);
-  }
-
-  return cloned;
-}
-
-/**
  * Save Classroom App State to Firestore in isolated workspace
  * Also creates/updates dedicated classes_data backup
  */
@@ -359,66 +266,25 @@ export async function saveAppStateToFirestore(
 
   try {
     const docRef = doc(db, 'workspaces', key);
-    const stateToSave = prepareOptimizedWorkspacePayload({
+    const stateToSave = {
       ...state,
       ownerUserId: userId,
       ownerName: meta?.teacherName || state.ownerName || state.teacher?.name || '',
       updatedAt: nowIso
-    });
+    };
 
     const sanitizedState = sanitizeFirestoreData(stateToSave);
-    
-    try {
-      await setDoc(docRef, sanitizedState);
-    } catch (primaryErr: any) {
-      // Emergency retry: If document size or write limit error occurred, force strip all data URLs
-      if (
-        primaryErr?.message?.includes('size') ||
-        primaryErr?.message?.includes('exceeds') ||
-        primaryErr?.code === 'invalid-argument'
-      ) {
-        console.warn('Primary setDoc size error, attempting emergency ultra-pruning retry...');
-        const emergencyCloned = JSON.parse(JSON.stringify(stateToSave));
-        if (Array.isArray(emergencyCloned.students)) {
-          emergencyCloned.students = emergencyCloned.students.map((s: any) => ({
-            ...s,
-            avatar: s.avatar?.startsWith('data:') ? '' : s.avatar
-          }));
-        }
-        if (Array.isArray(emergencyCloned.transactions)) {
-          emergencyCloned.transactions = emergencyCloned.transactions.slice(0, 10);
-        }
-        if (Array.isArray(emergencyCloned.wheelHistory)) {
-          emergencyCloned.wheelHistory = emergencyCloned.wheelHistory.slice(0, 5);
-        }
-        if (Array.isArray(emergencyCloned.filmHistory)) {
-          emergencyCloned.filmHistory = emergencyCloned.filmHistory.slice(0, 5);
-        }
-        const emergencySanitized = sanitizeFirestoreData(emergencyCloned);
-        await setDoc(docRef, emergencySanitized);
-      } else {
-        throw primaryErr;
-      }
-    }
+    await setDoc(docRef, sanitizedState);
 
     // Concurrently maintain a lightweight, dedicated backup for classes and students
     if (userId) {
       try {
         const classesDocRef = doc(db, 'classes_data', userId);
-        const optimizedStudents = Array.isArray(state.students)
-          ? state.students.map((s) => {
-              if (s.avatar && typeof s.avatar === 'string' && s.avatar.startsWith('data:') && s.avatar.length > 12000) {
-                return { ...s, avatar: '' };
-              }
-              return s;
-            })
-          : [];
-
         await setDoc(classesDocRef, {
           userId,
           ownerName: meta?.teacherName || state.ownerName || state.teacher?.name || '',
           classes: sanitizeFirestoreData(state.classes || []),
-          students: sanitizeFirestoreData(optimizedStudents),
+          students: sanitizeFirestoreData(state.students || []),
           updatedAt: nowIso
         });
       } catch (backupErr) {

@@ -373,8 +373,8 @@ export function readFileAsDataURL(file: File): Promise<string> {
 
 export function compressImageFile(
   file: File,
-  maxDimension = 120,
-  quality = 0.65
+  maxDimension = 280,
+  quality = 0.82
 ): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
